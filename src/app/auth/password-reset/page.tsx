@@ -3,20 +3,61 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
-import { Box, Button, Divider, FormControl, FormLabel, Input, Paper, Typography } from "@mui/material";
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Button,
+  Divider,
+  FormControl,
+  FormLabel,
+  Input,
+  Paper,
+  Typography,
+} from "@mui/material";
 
 import Logo from "@/components/logo/logo";
-import { DEFAULTS } from "@/config";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function Page() {
   const router = useRouter();
   const [data, setData] = useState({
     email: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    router.push(DEFAULTS.appRoot);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: data.email }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.message || "Unable to send the reset email. Please try again.");
+      }
+
+      setSuccessMessage(result?.message || "If an account exists for this email, you'll receive a reset link shortly.");
+      setData({ email: "" });
+      setTimeout(() => router.push("/auth/sign-in"), 1200);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to send the reset email. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -49,9 +90,27 @@ export default function Page() {
                     />
                   </FormControl>
 
+                  {errorMessage && (
+                    <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Reset request failed</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {errorMessage}
+                      </Typography>
+                    </Alert>
+                  )}
+
+                  {successMessage && (
+                    <Alert severity="success" className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Check your inbox</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {successMessage}
+                      </Typography>
+                    </Alert>
+                  )}
+
                   <Box className="flex flex-col gap-2">
-                    <Button type="submit" variant="contained" className="mb-4">
-                      Continue
+                    <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
+                      {isSubmitting ? "Sending..." : "Continue"}
                     </Button>
                   </Box>
 

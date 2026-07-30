@@ -36,6 +36,8 @@ const validationSchema = yup.object({
   password: yup.string().required("The field is required"),
 });
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 const MOCK_CREDENTIALS = {
   email: "admin@Aquavista.dev",
   password: "password",
@@ -67,6 +69,8 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 export default function Page() {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const formik = useFormik({
     initialValues: {
@@ -75,9 +79,44 @@ export default function Page() {
       admin: "no",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
-      router.push(DEFAULTS.appRoot);
+    onSubmit: async (values) => {
+      setSubmitted(true);
+      setAuthError(null);
+      setIsSubmitting(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: values.email,
+            password: values.password,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Unable to sign in. Please try again.");
+        }
+
+        if (!data?.token) {
+          throw new Error("Authentication token was not returned by the server.");
+        }
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("aquavista-auth-token", data.token);
+          localStorage.setItem("aquavista-user", JSON.stringify(data.user || {}));
+        }
+
+        router.push(DEFAULTS.appRoot);
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Unable to sign in. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     validateOnBlur: false,
     validateOnMount: false,
@@ -183,6 +222,7 @@ export default function Page() {
                   component={"form"}
                   onSubmit={(event) => {
                     setSubmitted(true);
+                    setAuthError(null);
                     formik.handleSubmit(event);
                   }}
                   className="flex flex-col"
@@ -206,7 +246,6 @@ export default function Page() {
                       </RadioGroup>
                     </Box>
                   </FormControl>
-
 
                   <FormControl className="outlined" variant="standard" size="small">
                     <FormLabel component="label" className="flex flex-row">
@@ -258,6 +297,15 @@ export default function Page() {
                     />
                   </FormControl>
 
+                  {submitted && authError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Sign-in failed</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {authError}
+                      </Typography>
+                    </Alert>
+                  )}
+
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
                       <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
@@ -282,8 +330,8 @@ export default function Page() {
                     >
                       Reset Password
                     </Link>
-                    <Button type="submit" variant="contained" className="mb-4">
-                      Continue
+                    <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
+                      {isSubmitting ? "Signing in..." : "Continue"}
                     </Button>
                   </Box>
 

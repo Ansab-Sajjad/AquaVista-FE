@@ -1,4 +1,5 @@
 "use client";
+
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,6 +22,7 @@ import {
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
+import { DEFAULTS } from "@/config";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
@@ -33,12 +35,12 @@ const validationSchema = yup.object({
     .string()
     .required("The field is required")
     .min(8, "Should be at least 8 characters")
-    .test("uppercase", "Should be an uppercase and a lowercase letter", (value: string | undefined) => {
+    .test("uppercase", "Should be an uppercase and a lowercase letter", (value) => {
       const hasUpperCase = /[A-Z]/.test(value || "");
       const hasLowerCase = /[a-z]/.test(value || "");
       return hasUpperCase && hasLowerCase;
     })
-    .test("symbol", "Should be a special character", (value: string | undefined) => {
+    .test("symbol", "Should be a special character", (value) => {
       const hasSymbol = /[^A-Za-z 0-9]/g.test(value || "");
       return hasSymbol;
     }),
@@ -86,10 +88,10 @@ export default function Page() {
 
       try {
         if (!token) {
-          throw new Error("The password reset link is missing a token. Please request a new reset email.");
+          throw new Error("The activation link is missing a token. Please request a new invitation.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/activate`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -103,17 +105,17 @@ export default function Page() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(data?.message || "Unable to reset your password. Please try again.");
+          throw new Error(data?.message || "Unable to activate your account. Please try again.");
         }
 
         if (typeof window !== "undefined" && data?.token) {
           localStorage.setItem("aquavista-auth-token", data.token);
         }
 
-        setSuccessMessage(data?.message || "Password reset successful.");
-        setTimeout(() => router.push("/auth/sign-in"), 1000);
+        setSuccessMessage(data?.message || "Account activated successfully.");
+        setTimeout(() => router.push(DEFAULTS.appRoot), 800);
       } catch (error) {
-        setAuthError(error instanceof Error ? error.message : "Unable to reset your password. Please try again.");
+        setAuthError(error instanceof Error ? error.message : "Unable to activate your account. Please try again.");
       } finally {
         setIsSubmitting(false);
       }
@@ -149,10 +151,10 @@ export default function Page() {
             <Box className="flex flex-col gap-10">
               <Box className="flex flex-col">
                 <Typography variant="h1" component="h1" className="mb-2">
-                  Reset Password
+                  Activate Account
                 </Typography>
                 <Typography variant="body1" className="text-text-primary">
-                  Get an email about how to reset your password securely.
+                  Create a password to complete your AquaVista account setup.
                 </Typography>
               </Box>
 
@@ -161,13 +163,15 @@ export default function Page() {
                   component={"form"}
                   onSubmit={(event) => {
                     setSubmitted(true);
+                    setAuthError(null);
+                    setSuccessMessage(null);
                     formik.handleSubmit(event);
                   }}
                   className="flex flex-col"
                 >
                   <FormControl className="outlined" variant="standard" size="small">
                     <FormLabel component="label" className="flex flex-row">
-                      Password{" "}
+                      Password
                       {formik.touched.password && formik.errors.password && (
                         <InputErrorTooltip title={formik.errors.password} />
                       )}
@@ -176,7 +180,8 @@ export default function Page() {
                       id="password"
                       name="password"
                       placeholder=""
-                      autoComplete="off"
+                      type="password"
+                      autoComplete="new-password"
                       value={formik.values.password}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -231,7 +236,7 @@ export default function Page() {
 
                   {authError && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                      <AlertTitle variant="subtitle2">Password reset failed</AlertTitle>
+                      <AlertTitle variant="subtitle2">Activation failed</AlertTitle>
                       <Typography variant="body2" className="text-text-primary">
                         {authError}
                       </Typography>
@@ -240,7 +245,7 @@ export default function Page() {
 
                   {successMessage && (
                     <Alert severity="success" icon={<NiCheck />} className="neutral bg-background-paper/60! mb-4">
-                      <AlertTitle variant="subtitle2">Password updated</AlertTitle>
+                      <AlertTitle variant="subtitle2">Account activated</AlertTitle>
                       <Typography variant="body2" className="text-text-primary">
                         {successMessage}
                       </Typography>
@@ -267,7 +272,7 @@ export default function Page() {
 
                   <Box className="flex flex-col gap-2">
                     <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
-                      {isSubmitting ? "Updating password..." : "Continue"}
+                      {isSubmitting ? "Activating..." : "Continue"}
                     </Button>
                   </Box>
 
@@ -291,10 +296,10 @@ export default function Page() {
               <Divider className="text-text-secondary my-0 text-sm"></Divider>
               <Box className="flex flex-col">
                 <Typography variant="h6" component="h6">
-                  Sign in
+                  Already activated?
                 </Typography>
                 <Typography variant="body1" className="text-text-secondary">
-                  If you already have an account, please{" "}
+                  Continue to{" "}
                   <Link href="/auth/sign-in" className="link-primary link-underline-hover">
                     sign in
                   </Link>

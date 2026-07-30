@@ -21,11 +21,12 @@ import {
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
-import { DEFAULTS } from "@/config";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { cn } from "@/lib/utils";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const validationSchema = yup.object({
   name: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
@@ -68,6 +69,9 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 export default function Page() {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const formik = useFormik({
     initialValues: {
@@ -77,9 +81,39 @@ export default function Page() {
       password: "",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
-      router.push(DEFAULTS.appRoot);
+    onSubmit: async (values) => {
+      setSubmitted(true);
+      setAuthError(null);
+      setSuccessMessage(null);
+      setIsSubmitting(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: values.name,
+            email: values.email,
+            company: values.company,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Unable to create your account. Please try again.");
+        }
+
+        setSuccessMessage(data?.message || "Account created. Please check your email to activate your account.");
+        formik.resetForm();
+        router.push("/auth/sign-in");
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Unable to create your account. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     validateOnBlur: false,
     validateOnMount: false,
@@ -178,6 +212,8 @@ export default function Page() {
                   component={"form"}
                   onSubmit={(event) => {
                     setSubmitted(true);
+                    setAuthError(null);
+                    setSuccessMessage(null);
                     formik.handleSubmit(event);
                   }}
                   className="flex flex-col"
@@ -240,7 +276,8 @@ export default function Page() {
                       id="password"
                       name="password"
                       placeholder=""
-                      autoComplete="off"
+                      type="password"
+                      autoComplete="new-password"
                       value={formik.values.password}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -292,6 +329,24 @@ export default function Page() {
                       </span>
                     </Typography>
                   </FormControl>
+                  {submitted && authError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Sign-up failed</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {authError}
+                      </Typography>
+                    </Alert>
+                  )}
+
+                  {successMessage && (
+                    <Alert severity="success" icon={<NiCheck />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Account created</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {successMessage}
+                      </Typography>
+                    </Alert>
+                  )}
+
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
                       <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
@@ -316,8 +371,8 @@ export default function Page() {
                     >
                       Reset Password
                     </Link>
-                    <Button type="submit" variant="contained" className="mb-4">
-                      Continue
+                    <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
+                      {isSubmitting ? "Creating account..." : "Continue"}
                     </Button>
                   </Box>
 
