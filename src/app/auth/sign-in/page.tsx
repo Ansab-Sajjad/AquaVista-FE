@@ -74,9 +74,9 @@ export default function Page() {
 
   const formik = useFormik({
     initialValues: {
-      email: MOCK_USER_CREDENTIALS.email,
-      password: MOCK_USER_CREDENTIALS.password,
-      admin: "no",
+      email: MOCK_CREDENTIALS.email,
+      password: MOCK_CREDENTIALS.password,
+      admin: "yes",
     },
     validationSchema,
     onSubmit: async (values) => {

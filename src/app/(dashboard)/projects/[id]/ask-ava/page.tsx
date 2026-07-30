@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
 
-import { Box, Button, Card, CardContent, Chip, IconButton, TextField, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, Chip, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, TextField, Typography } from "@mui/material";
 
-import { AquaVista, isWithinAssistantScope, outOfScopeMessage } from "@/lib/AquaVista";
+import { AquaVista } from "@/lib/AquaVista";
+import { getStoredAuthToken } from "@/lib/auth";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { cn } from "@/lib/utils";
 
 type Message = {
@@ -16,59 +18,193 @@ type Message = {
   title?: string;
 };
 
-const MOCK_RESPONSES: Record<string, string> = {
-  "revenue sufficient":
-    "Yes, total operating revenue has exceeded total operating expenses in each of the last five years. The debt service coverage covenant is met with a 1.45x margin in 2024.",
-  default:
-    "I can only answer questions about this project's data and municipal finance topics. Please ask about rates, revenue, expenses, debt, or customer classes.",
+type ChatSummary = {
+  _id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+};
+
+type ChatRecord = {
+  _id: string;
+  title: string;
+  messages: Array<Omit<Message, "id"> & { createdAt?: string; _id?: string }>;
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+const WELCOME_MESSAGE: Message = {
+  id: "welcome",
+  role: "assistant",
+  content: `Hi, I'm ${AquaVista.assistantName} — your ${AquaVista.assistantFullName}. Ask me anything about this project's uploaded data and municipal finance. I'll stay grounded in the data and tell you when I don't know.`,
 };
 
 export default function AskAvaPage() {
   const params = useParams();
   const projectId = (params?.id as string) || "";
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: `Hi, I'm ${AquaVista.assistantName} — your ${AquaVista.assistantFullName}. Ask me anything about this project's uploaded data and municipal finance. I'll stay grounded in the data and tell you when I don't know.`,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatTitle, setChatTitle] = useState("New conversation");
+  const [chatList, setChatList] = useState<ChatSummary[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
+  const token = getStoredAuthToken();
+  const authUser = useAuthUser();
+
+  useEffect(() => {
+    async function fetchChat() {
+      if (!projectId || !token) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const chatsRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!chatsRes.ok) {
+          throw new Error("Failed to load chat list");
+        }
+
+        const chats = (await chatsRes.json()) as ChatSummary[];
+        setChatList(chats);
+
+        let selectedChat = chats[0];
+
+        if (!selectedChat) {
+          const createRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title: "Ask AVA conversation" }),
+          });
+
+          if (!createRes.ok) {
+            throw new Error("Failed to create Ask AVA chat");
+          }
+
+          selectedChat = await createRes.json();
+          setChatList((prev) => [selectedChat, ...prev]);
+        }
+
+        if (!selectedChat) {
+          throw new Error("No Ask AVA chat available");
+        }
+
+        await loadChat(selectedChat._id, selectedChat.title || "New conversation");
+      } catch (err) {
+        console.error(err);
+        setError("Unable to load Ask AVA. Please refresh the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchChat();
+  }, [projectId, token]);
+
+  const loadChat = async (selectedChatId: string, title: string) => {
+    if (!projectId || !token) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const chatRes = await fetch(
+        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!chatRes.ok) {
+        throw new Error("Failed to load Ask AVA conversation");
+      }
+
+      const chat = (await chatRes.json()) as ChatRecord;
+      setChatId(selectedChatId);
+      setChatTitle(title);
+
+      const persistedMessages = chat.messages.map((message, index) => ({
+        id:
+          message._id ||
+          `${message.role}-${index}-${message.createdAt?.toString() ?? Date.now().toString()}`,
+        role: message.role,
+        content: message.content,
+        type: message.type,
+        title: message.title,
+      }));
+
+      if (persistedMessages.length > 0) {
+        setMessages(persistedMessages);
+      } else {
+        setMessages([WELCOME_MESSAGE]);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Unable to load Ask AVA conversation. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || isThinking || !projectId || !token || !chatId) return;
+
     const userMessage: Message = { id: String(Date.now()), role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsThinking(true);
+    setError(null);
 
-    setTimeout(() => {
-      const lower = userMessage.content.toLowerCase();
-      let response: string;
-      let title = "Analyst note";
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content: userMessage.content }),
+        }
+      );
 
-      if (!isWithinAssistantScope(userMessage.content)) {
-        response = outOfScopeMessage();
-        title = `${AquaVista.assistantName} guardrail`;
-      } else if (lower.includes("revenue") || lower.includes("sufficient") || lower.includes("expense")) {
-        response = MOCK_RESPONSES["revenue sufficient"];
-      } else if (lower.includes("customer") || lower.includes("allocation")) {
-        response =
-          "Residential customers represent 72% of accounts and 58% of billed consumption. Commercial accounts are 18% of accounts but 35% of consumption.";
-      } else {
-        response = MOCK_RESPONSES.default;
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const message = payload?.message || "AVA is temporarily unavailable. Please try again.";
+        throw new Error(message);
       }
 
-      const assistantMessage: Message = {
-        id: String(Date.now() + 1),
-        role: "assistant",
-        content: response,
-        title,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      const payload = await response.json() as { messages: Message[] };
+      setMessages((prev) => [...prev, ...payload.messages.map((item, index) => ({
+        id: `${Date.now()}-${index}`,
+        role: item.role,
+        content: item.content,
+        type: item.type,
+        title: item.title,
+      }))]);
+    } catch (err) {
+      console.error(err);
+      setError((err as Error).message || "AVA is temporarily unavailable. Please try again.");
+    } finally {
       setIsThinking(false);
-    }, 1000);
+    }
   };
 
   const handlePin = (message: Message) => {
@@ -91,7 +227,7 @@ export default function AskAvaPage() {
             Ask {AquaVista.assistantName}
           </Typography>
           <Typography variant="body1" className="text-text-secondary">
-            Ask questions about this project's data and municipal finance topics.
+            {chatTitle}
           </Typography>
         </Box>
         <Chip label="Beta" size="small" color="warning" />
@@ -100,12 +236,54 @@ export default function AskAvaPage() {
       <Card className="bg-background-paper shadow-darker-xs flex h-[calc(100vh-22rem)] flex-col rounded-3xl">
         <CardContent className="flex h-full flex-col gap-4 p-5">
           <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
-            <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
-            {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for
-            clarification when the data is incomplete.
+            <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for clarification when the data is incomplete.
           </Box>
 
+          {authUser.role === "admin" ? (
+            <Box className="mb-4 w-full max-w-sm">
+              <FormControl fullWidth>
+                <InputLabel id="ava-chat-select-label">Select conversation</InputLabel>
+                <Select
+                  labelId="ava-chat-select-label"
+                  value={chatId || ""}
+                  label="Select conversation"
+                  onChange={(event: SelectChangeEvent<string>) => {
+                    const selectedId = event.target.value;
+                    const selectedChat = chatList.find((chat) => chat._id === selectedId);
+                    if (selectedChat) {
+                      loadChat(selectedChat._id, selectedChat.title || "New conversation");
+                    }
+                  }}
+                >
+                  {chatList.length > 0 ? (
+                    chatList.map((chat) => (
+                      <MenuItem key={chat._id} value={chat._id}>
+                        {chat.title || "Untitled conversation"}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="" disabled>
+                      No conversations yet
+                    </MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+            </Box>
+          ) : null}
+
           <Box className="flex-1 space-y-4 overflow-y-auto pr-2">
+            {isLoading ? (
+              <Box className="rounded-3xl bg-grey-50 p-6 text-center text-text-secondary">
+                <Typography>Loading Ask AVA conversation...</Typography>
+              </Box>
+            ) : null}
+
+            {error ? (
+              <Box className="rounded-3xl bg-error/10 p-4 text-error">
+                <Typography>{error}</Typography>
+              </Box>
+            ) : null}
+
             {messages.map((message) => (
               <Box
                 key={message.id}
@@ -150,6 +328,7 @@ export default function AskAvaPage() {
                 </Box>
               </Box>
             ))}
+
             {isThinking && (
               <Box className="flex w-full justify-start">
                 <Box className="bg-grey-50 rounded-3xl rounded-bl-sm px-5 py-3 text-text-primary">
@@ -159,7 +338,7 @@ export default function AskAvaPage() {
             )}
           </Box>
 
-          <Box className="mt-auto flex items-start gap-2 pt-2">
+              <Box className="mt-auto flex items-start gap-2 pt-2">
             <TextField
               fullWidth
               multiline={false}
@@ -169,8 +348,14 @@ export default function AskAvaPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask AVA about revenue, expenses, customer classes, rates..."
               slotProps={{ input: { className: "rounded-2xl" } }}
+              disabled={isLoading || !token || !chatId}
             />
-            <Button variant="contained" onClick={sendMessage} disabled={!input.trim() || isThinking} className="h-14 px-6">
+            <Button
+              variant="contained"
+              onClick={sendMessage}
+              disabled={!input.trim() || isThinking || isLoading || !token || !chatId}
+              className="h-14 px-6"
+            >
               Send
             </Button>
           </Box>
