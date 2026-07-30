@@ -3,7 +3,6 @@
 import UserLanguageSwitch from "./user-language-switch";
 import UserModeSwitch from "./user-mode-switch";
 import UserThemeSwitch from "./user-theme-switch";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useTranslations } from "use-intl";
@@ -36,6 +35,7 @@ import NiQuestionHexagon from "@/icons/nexture/ni-question-hexagon";
 import NiSettings from "@/icons/nexture/ni-settings";
 import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
+import { logoutUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export default function User() {
@@ -291,12 +291,14 @@ export default function User() {
                       </MenuList>
                       <Box className="my-8"></Box>
                       <Button
-                        component={Link}
-                        href="/auth/sign-in"
                         variant="outlined"
                         size="tiny"
                         color="grey"
                         className="w-full"
+                        onClick={() => {
+                          handleClose({ target: document.body } as Event);
+                          void logoutUser(router);
+                        }}
                       >
                         {t("user-sign-out")}
                       </Button>

@@ -109,6 +109,7 @@ export default function Page() {
         if (typeof window !== "undefined") {
           localStorage.setItem("aquavista-auth-token", data.token);
           localStorage.setItem("aquavista-user", JSON.stringify(data.user || {}));
+          document.cookie = `aquavista-auth-token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
         }
 
         router.push(DEFAULTS.appRoot);
