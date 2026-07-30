@@ -52,6 +52,9 @@ export default async function RootLayout({
         {/* We need to include the loader CSS directly to avoid flash of unstyled content */}
         <link rel="stylesheet" href="/initial-loader.css" />
 
+        {/* Default favicon */}
+        <link rel="icon" href="/favicon.png" />
+
         {/* Load the loader script directly for fastest execution */}
         <Script id="loader-script" src="/initial-loader.js" strategy="beforeInteractive" />
       </head>
