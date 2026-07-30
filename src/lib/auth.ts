@@ -31,6 +31,26 @@ export function isAuthenticated() {
   return Boolean(getStoredAuthToken());
 }
 
+export function isAdminUser() {
+  const user = getStoredAuthUser();
+  if (!user) {
+    return false;
+  }
+
+  const roleValue = user.role ?? user.userRole ?? user.userType ?? user.type ?? user.isAdmin;
+
+  if (typeof roleValue === "boolean") {
+    return roleValue;
+  }
+
+  if (typeof roleValue === "string") {
+    const normalizedRole = roleValue.trim().toLowerCase();
+    return ["admin", "superadmin", "super admin", "administrator", "owner"].includes(normalizedRole);
+  }
+
+  return false;
+}
+
 export function clearAuthState() {
   if (typeof window === "undefined") {
     return;

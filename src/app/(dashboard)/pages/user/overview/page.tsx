@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 
 import NiEllipsisHorizontal from "@/icons/nexture/ni-ellipsis-horizontal";
+import { useAuthUser } from "@/hooks/use-auth-user";
 
 export default function Page() {
   const [anchorElMainMenu, setAnchorElMainMenu] = React.useState<EventTarget | Element | PopoverVirtualElement | null>(
@@ -36,13 +37,14 @@ export default function Page() {
   const handleCloseMainMenu = () => {
     setAnchorElMainMenu(null);
   };
+  const authUser = useAuthUser();
 
   return (
     <Grid container spacing={5} className="w-full" size={12}>
       <Grid container spacing={2.5} className="w-full" size={12}>
         <Grid size={{ md: "grow", xs: 12 }}>
           <Typography variant="h1" component="h1" className="mb-0">
-            Laura Ellis
+            {authUser.name ?? ""}
           </Typography>
           <Breadcrumbs>
             <Link color="inherit" href="/dashboards/default">
@@ -54,7 +56,7 @@ export default function Page() {
             <Link color="inherit" href="/pages/user">
               User
             </Link>
-            <Typography variant="body2">Laura Ellis</Typography>
+            <Typography variant="body2">{authUser.name ?? ""}</Typography>
           </Breadcrumbs>
         </Grid>
 

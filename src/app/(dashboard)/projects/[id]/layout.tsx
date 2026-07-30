@@ -7,18 +7,22 @@ import { PropsWithChildren } from "react";
 import { Box, Button, Tab, Tabs, Typography } from "@mui/material";
 
 import { cn } from "@/lib/utils";
+import { isAdminUser } from "@/lib/auth";
 
 const PROJECT_TABS = [
   { id: "dashboard", label: "Dashboard", href: (id: string) => `/projects/${id}/dashboard` },
   { id: "data", label: "Data", href: (id: string) => `/projects/${id}/data` },
   { id: "ask-ava", label: "Ask AVA", href: (id: string) => `/projects/${id}/ask-ava` },
-  { id: "users", label: "Users", href: (id: string) => `/projects/${id}/users` },
+  { id: "users", label: "Users", href: (id: string) => `/projects/${id}/users`, adminOnly: true },
 ];
 
 export default function ProjectLayout({ children }: PropsWithChildren) {
   const params = useParams();
   const pathname = usePathname();
   const projectId = (params?.id as string) || "";
+  const isAdmin = isAdminUser();
+
+  const VISIBLE_TABS = PROJECT_TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
   const activeTab = PROJECT_TABS.find((tab) => pathname.includes(`/projects/${projectId}/${tab.id}`))?.id || "dashboard";
 
@@ -45,7 +49,7 @@ export default function ProjectLayout({ children }: PropsWithChildren) {
           indicatorColor="primary"
           className="min-h-12"
         >
-          {PROJECT_TABS.map((tab) => (
+          {VISIBLE_TABS.map((tab) => (
             <Tab
               key={tab.id}
               value={tab.id}

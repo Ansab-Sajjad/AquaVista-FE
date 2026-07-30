@@ -37,11 +37,13 @@ import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
 import { logoutUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { useAuthUser } from "@/hooks/use-auth-user";
 
 export default function User() {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef<HTMLButtonElement>(null);
   const t = useTranslations("dashboard");
+  const authUser = useAuthUser();
 
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
@@ -69,7 +71,7 @@ export default function User() {
           )}
           onClick={handleToggle}
         >
-          <Box>Laura Ellis</Box>
+          <Box>{authUser.name ?? "Account"}</Box>
           <Avatar
             alt="avatar"
             src="/images/avatars/avatar-3.jpg"
@@ -120,10 +122,10 @@ export default function User() {
                       <Box className="mb-4 flex flex-col items-center">
                         <Avatar alt="avatar" src="/images/avatars/avatar-3.jpg" className="large mb-2" />
                         <Typography variant="subtitle1" component="p">
-                          Laura Ellis
+                          {authUser.name ?? "Account"}
                         </Typography>
                         <Typography variant="body2" component="p" className="text-text-secondary -mt-2">
-                          laura.ellis@gogo.dev
+                          {authUser.email ?? ""}
                         </Typography>
                       </Box>
 
@@ -156,14 +158,14 @@ export default function User() {
                             <MenuList className="mb-4 p-0">
                               <MenuItem onClick={handleClose}>
                                 <ListItemIcon className="me-2">
-                                  <Avatar className="tiny" alt="Laura Ellis" src="/images/avatars/avatar-3.jpg" />
+                                  <Avatar className="tiny" alt="avatar" src="/images/avatars/avatar-3.jpg" />
                                 </ListItemIcon>
                                 <Box>
                                   <Typography variant="body1" component="div">
-                                    Laura Ellis
+                                    {authUser.name ?? "Account"}
                                   </Typography>
                                   <Typography variant="body2" component="div" className="text-text-secondary -mt-1">
-                                    laura@gogo.dev
+                                    {authUser.email ?? ""}
                                   </Typography>
                                 </Box>
                               </MenuItem>

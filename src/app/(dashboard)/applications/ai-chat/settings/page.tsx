@@ -21,22 +21,9 @@ import {
   Typography,
 } from "@mui/material";
 
-import NiBasket from "@/icons/nexture/ni-basket";
-import NiBell from "@/icons/nexture/ni-bell";
-import NiCheckSquare from "@/icons/nexture/ni-check-square";
-import NiDocumentFull from "@/icons/nexture/ni-document-full";
-import NiEmail from "@/icons/nexture/ni-email";
-import NiLaptop from "@/icons/nexture/ni-laptop";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
 import NiLock from "@/icons/nexture/ni-lock";
-import NiMoneyBag from "@/icons/nexture/ni-money-bag";
-import NiPaintRoller from "@/icons/nexture/ni-paint-roller";
-import NiReceipt from "@/icons/nexture/ni-receipt";
-import NiStars from "@/icons/nexture/ni-stars";
 import NiUser from "@/icons/nexture/ni-user";
-import NiUsers from "@/icons/nexture/ni-users";
-import NiWallet from "@/icons/nexture/ni-wallet";
-
 const MenuContent = () => {
   return (
     <Box className="flex flex-col gap-4">
@@ -59,65 +46,6 @@ const MenuContent = () => {
             <ListItemText primary="Profile" />
           </ListItemButton>
         </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiUsers size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Friends" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiDocumentFull size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Account" />
-          </ListItemButton>
-        </ListItem>
-
-        <ListItem disablePadding>
-          <ListItemButton className="pointer-events-none mt-4">
-            <ListItemText
-              primary="Payment"
-              slotProps={{
-                primary: { className: "text-sm! font-semibold! text-text-disabled-dark" },
-              }}
-            />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiWallet size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Billing" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiReceipt size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Invoice" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiMoneyBag size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Tax Info" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiBasket size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Payment Methods" />
-          </ListItemButton>
-        </ListItem>
 
         <ListItem disablePadding>
           <ListItemButton className="pointer-events-none mt-4">
@@ -135,73 +63,6 @@ const MenuContent = () => {
               <NiLock size="medium" />
             </ListItemIcon>
             <ListItemText primary="Password" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiCheckSquare size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Two Factor Auth" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiLaptop size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Devices" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiListCircle size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Logs" />
-          </ListItemButton>
-        </ListItem>
-
-        <ListItem disablePadding>
-          <ListItemButton className="pointer-events-none mt-4">
-            <ListItemText
-              primary="Preferences"
-              slotProps={{
-                primary: { className: "text-sm! font-semibold! text-text-disabled-dark" },
-              }}
-            />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiBell size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Notifications" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiEmail size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Emails" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiPaintRoller size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Appearance" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton href="/settings" LinkComponent={Link}>
-            <ListItemIcon>
-              <NiStars size="medium" />
-            </ListItemIcon>
-            <ListItemText primary="Moderation" />
           </ListItemButton>
         </ListItem>
       </List>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 
-import { getStoredAuthToken } from "@/lib/auth";
+import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 
 type User = {
   id: string;
@@ -43,6 +43,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function UsersPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = (params?.id as string) || "";
   const [users, setUsers] = useState<User[]>([]);
   const [open, setOpen] = useState(false);
@@ -51,8 +52,15 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [newUser, setNewUser] = useState({ email: "" });
 
+  // Redirect non-admins away — tab is hidden but guard direct URL access too
+  useEffect(() => {
+    if (!isAdminUser()) {
+      router.replace(`/projects/${projectId}/dashboard`);
+    }
+  }, [projectId, router]);
+
   const loadUsers = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId || !isAdminUser()) return;
 
     setLoading(true);
     setError(null);

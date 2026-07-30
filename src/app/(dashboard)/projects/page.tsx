@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,49 +22,126 @@ import {
   Typography,
 } from "@mui/material";
 
-const MOCK_PROJECTS = [
-  {
-    id: "1",
-    name: "Town of Strasburg",
-    municipality: "Strasburg",
-    description: "Water and sewer rate study for FY2026.",
-    teamCount: 4,
-    lastUpdated: "2026-06-28",
-  },
-  {
-    id: "2",
-    name: "City of Thornton",
-    municipality: "Thornton",
-    description: "Multi-utility rate adequacy review.",
-    teamCount: 3,
-    lastUpdated: "2026-06-25",
-  },
-];
+import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+
+type Project = {
+  id: string;
+  name: string;
+  municipality: string;
+  description?: string;
+  teamCount: number;
+  lastUpdated?: string | null;
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function ProjectsPage() {
   const [open, setOpen] = useState(false);
-  const [projects, setProjects] = useState(MOCK_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newProject, setNewProject] = useState({
     name: "",
     municipality: "",
     description: "",
   });
+  const isAdmin = isAdminUser();
 
-  const handleCreate = () => {
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = getStoredAuthToken();
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json().catch(() => []);
+      if (!response.ok) {
+        throw new Error(data?.message || "Unable to load projects.");
+      }
+
+      setProjects(
+        Array.isArray(data)
+          ? data.map((item: any) => ({
+              id: item.id || item._id,
+              name: item.name,
+              municipality: item.municipality,
+              description: item.description,
+              teamCount: item.teamCount ?? 0,
+              lastUpdated: item.lastUpdated || item.updatedAt,
+            }))
+          : [],
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load projects.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
+
+  const handleCreate = async () => {
     if (!newProject.name.trim() || !newProject.municipality.trim()) return;
-    setProjects((prev) => [
-      ...prev,
-      {
-        id: String(prev.length + 1),
-        name: newProject.name,
-        municipality: newProject.municipality,
-        description: newProject.description,
-        teamCount: 0,
-        lastUpdated: new Date().toISOString().split("T")[0],
-      },
-    ]);
-    setNewProject({ name: "", municipality: "", description: "" });
-    setOpen(false);
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      const token = getStoredAuthToken();
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newProject.name,
+          municipality: newProject.municipality,
+          description: newProject.description,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || "Unable to create project.");
+      }
+
+      setProjects((prev) => [
+        {
+          id: data?.id || String(Date.now()),
+          name: data?.name || newProject.name,
+          municipality: data?.municipality || newProject.municipality,
+          description: data?.description || newProject.description,
+          teamCount: data?.teamCount || 0,
+          lastUpdated: data?.lastUpdated || new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setNewProject({ name: "", municipality: "", description: "" });
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create project.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "Recently updated";
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return "Recently updated";
+
+    return parsedDate.toLocaleDateString();
   };
 
   return (
@@ -76,20 +155,34 @@ export default function ProjectsPage() {
             Select a municipal rate study project to open its workspace.
           </Typography>
         </Box>
-        <Button variant="contained" onClick={() => setOpen(true)}>
-          Create Project
-        </Button>
-      </Box>
-
-      {projects.length === 0 ? (
-        <Box className="flex flex-col items-center justify-center gap-4 rounded-4xl bg-background-paper p-12 text-center shadow-darker-xs">
-          <Typography variant="h4">No projects yet</Typography>
-          <Typography variant="body1" className="text-text-secondary">
-            Create a project to start a municipal rate study.
-          </Typography>
+        {isAdmin && (
           <Button variant="contained" onClick={() => setOpen(true)}>
             Create Project
           </Button>
+        )}
+      </Box>
+
+      {error && (
+        <Alert severity="error" className="bg-background-paper/70">
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box className="bg-background-paper shadow-darker-xs flex items-center justify-center rounded-4xl p-12">
+          <CircularProgress size={28} />
+        </Box>
+      ) : projects.length === 0 ? (
+        <Box className="bg-background-paper shadow-darker-xs flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center">
+          <Typography variant="h4">No projects yet</Typography>
+          <Typography variant="body1" className="text-text-secondary">
+            {isAdmin ? "Create a project to start a municipal rate study." : "You have not been added to any projects yet. Contact your AquaVista consultant."}
+          </Typography>
+          {isAdmin && (
+            <Button variant="contained" onClick={() => setOpen(true)}>
+              Create Project
+            </Button>
+          )}
         </Box>
       ) : (
         <Grid container spacing={3}>
@@ -111,7 +204,7 @@ export default function ProjectsPage() {
                     <Chip label={project.municipality} size="small" color="primary" />
                     <Chip label={`${project.teamCount} members`} size="small" variant="outlined" />
                     <Chip
-                      label={`Updated ${project.lastUpdated}`}
+                      label={`Updated ${formatDate(project.lastUpdated)}`}
                       size="small"
                       variant="outlined"
                       className="text-text-secondary"
@@ -156,8 +249,8 @@ export default function ProjectsPage() {
           <Button onClick={() => setOpen(false)} color="grey">
             Cancel
           </Button>
-          <Button variant="contained" onClick={handleCreate}>
-            Create
+          <Button variant="contained" onClick={() => void handleCreate()} disabled={creating}>
+            {creating ? "Creating..." : "Create"}
           </Button>
         </DialogActions>
       </Dialog>
