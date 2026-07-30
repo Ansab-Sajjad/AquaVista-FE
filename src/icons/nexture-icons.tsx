@@ -389,6 +389,7 @@ import NiShrinkFull from "./nexture/ni-shrink-full";
 import NiShrinkSquare from "./nexture/ni-shrink-square";
 import NiShuffle from "./nexture/ni-shuffle";
 import NiSign from "./nexture/ni-sign";
+import NiSignOut from "./nexture/ni-signout";
 import NiSignalLeftRight from "./nexture/ni-signal-left-right";
 import NiSignalRight from "./nexture/ni-signal-right";
 import NiSignalUp from "./nexture/ni-signal-up";
@@ -860,6 +861,7 @@ export const IconMap = {
   NiShrinkFull,
   NiShuffle,
   NiSign,
+  NiSignOut,
   NiSignalLeftRight,
   NiSignalRight,
   NiSignalUp,

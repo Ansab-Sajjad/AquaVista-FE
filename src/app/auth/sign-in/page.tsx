@@ -33,6 +33,11 @@ const validationSchema = yup.object({
   password: yup.string().required("The field is required"),
 });
 
+const MOCK_CREDENTIALS = {
+  email: "admin@Aquavista.dev",
+  password: "password",
+};
+
 type InputErrorProps = {
   title: string;
 };
@@ -58,8 +63,8 @@ export default function Page() {
 
   const formik = useFormik({
     initialValues: {
-      email: "",
-      password: "",
+      email: MOCK_CREDENTIALS.email,
+      password: MOCK_CREDENTIALS.password,
     },
     validationSchema,
     onSubmit: (values) => {
