@@ -20,4 +20,12 @@ export const leftMenuBottomItems: MenuItem[] = [
     color: "grey",
     href: "/settings",
   },
+  {
+    id: "signout",
+    icon: "NiSignOut",
+    label: "menu-sign-out",
+    description: "Sign out of your account",
+    color: "grey",
+    href: "/auth/sign-in",
+  },
 ];
