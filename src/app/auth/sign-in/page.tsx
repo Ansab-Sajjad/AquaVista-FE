@@ -13,11 +13,14 @@ import {
   capitalize,
   Divider,
   FormControl,
+  FormControlLabel,
   FormLabel,
   IconButton,
   Input,
   InputAdornment,
   Paper,
+  Radio,
+  RadioGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -35,6 +38,10 @@ const validationSchema = yup.object({
 
 const MOCK_CREDENTIALS = {
   email: "admin@Aquavista.dev",
+  password: "password",
+};
+const MOCK_USER_CREDENTIALS = {
+  email: "user@Aquavista.dev",
   password: "password",
 };
 
@@ -63,8 +70,9 @@ export default function Page() {
 
   const formik = useFormik({
     initialValues: {
-      email: MOCK_CREDENTIALS.email,
-      password: MOCK_CREDENTIALS.password,
+      email: MOCK_USER_CREDENTIALS.email,
+      password: MOCK_USER_CREDENTIALS.password,
+      admin: "no",
     },
     validationSchema,
     onSubmit: (values) => {
@@ -76,6 +84,16 @@ export default function Page() {
   });
 
   const [showPassword, setShowPassword] = React.useState(false);
+
+  const handleAdminSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = event.target.value;
+    const isAdmin = newValue === "yes";
+    const credentials = isAdmin ? MOCK_CREDENTIALS : MOCK_USER_CREDENTIALS;
+
+    formik.setFieldValue("admin", newValue);
+    formik.setFieldValue("email", credentials.email);
+    formik.setFieldValue("password", credentials.password);
+  };
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -169,6 +187,27 @@ export default function Page() {
                   }}
                   className="flex flex-col"
                 >
+                  <FormControl className="outlined" variant="standard" size="small">
+                    <Box className="flex flex-row items-center gap-4">
+                      <FormLabel component="legend" className="mb-4">
+                        Are you admin?
+                      </FormLabel>
+                      <RadioGroup
+                        row
+                        className="gap-4"
+                        name="admin"
+                        value={formik.values.admin}
+                        onChange={handleAdminSelection}
+                        onBlur={formik.handleBlur}
+                        aria-label="admin"
+                      >
+                        <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                        <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                      </RadioGroup>
+                    </Box>
+                  </FormControl>
+
+
                   <FormControl className="outlined" variant="standard" size="small">
                     <FormLabel component="label" className="flex flex-row">
                       Email
