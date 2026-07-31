@@ -222,12 +222,12 @@ export default function AskAvaPage() {
         throw new Error(message);
       }
 
-      const payload = (await response.json()) as { messages: Message[] };
+      const payload = (await response.json()) as { messages: Array<Message & { _id?: string }> };
       const assistantMessages = payload.messages.filter((item) => item.role === "assistant");
       setMessages((prev) => [
         ...prev,
         ...assistantMessages.map((item, index) => ({
-          id: `${Date.now()}-${index}`,
+          id: item._id || `${Date.now()}-${index}`,
           role: item.role,
           content: item.content,
           type: item.type,

@@ -188,30 +188,31 @@ export default function ProjectsPage() {
         <Grid container spacing={3}>
           {projects.map((project) => (
             <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
-              <Card
-                component={Link}
+              <Link
                 href={`/projects/${project.id}/dashboard`}
-                className="bg-background-paper shadow-darker-xs h-full cursor-pointer rounded-3xl no-underline transition-shadow hover:shadow-lg"
+                className="block h-full no-underline"
               >
-                <CardContent className="flex h-full flex-col gap-3 p-6">
-                  <Typography variant="h5" component="h3" className="text-text-primary">
-                    {project.name}
-                  </Typography>
-                  <Typography variant="body2" className="text-text-secondary">
-                    {project.description || "No description provided."}
-                  </Typography>
-                  <Box className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-                    <Chip label={project.municipality} size="small" color="primary" />
-                    <Chip label={`${project.teamCount} members`} size="small" variant="outlined" />
-                    <Chip
-                      label={`Updated ${formatDate(project.lastUpdated)}`}
-                      size="small"
-                      variant="outlined"
-                      className="text-text-secondary"
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
+                <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-shadow hover:shadow-lg">
+                  <CardContent className="flex h-full flex-col gap-3 p-6">
+                    <Typography variant="h5" component="h3" className="text-text-primary">
+                      {project.name}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary">
+                      {project.description || "No description provided."}
+                    </Typography>
+                    <Box className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                      <Chip label={project.municipality} size="small" color="primary" />
+                      <Chip label={`${project.teamCount} members`} size="small" variant="outlined" />
+                      <Chip
+                        label={`Updated ${formatDate(project.lastUpdated)}`}
+                        size="small"
+                        variant="outlined"
+                        className="text-text-secondary"
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Link>
             </Grid>
           ))}
         </Grid>

@@ -7,6 +7,7 @@ import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from 
 
 import NiLock from "@/icons/nexture/ni-lock";
 import NiUser from "@/icons/nexture/ni-user";
+import NiPalette from "@/icons/nexture/ni-palette";
 
 export default function SettingsMenu() {
   const pathname = usePathname();
@@ -20,6 +21,14 @@ export default function SettingsMenu() {
               <NiUser size="medium" />
             </ListItemIcon>
             <ListItemText primary="Profile" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton href="/settings/configuration" LinkComponent={Link} selected={pathname === "/settings/configuration"}>
+            <ListItemIcon>
+              <NiPalette size="medium" />
+            </ListItemIcon>
+            <ListItemText primary="Configuration" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

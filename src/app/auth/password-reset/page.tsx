@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   Alert,
@@ -17,17 +17,24 @@ import {
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
+import { THEME_OPTIONS } from "@/constants";
+import { useThemeContext } from "@/theme/theme-provider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function Page() {
   const router = useRouter();
+  const { setTheme } = useThemeContext();
   const [data, setData] = useState({
     email: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTheme(THEME_OPTIONS.ORANGE);
+  }, [setTheme]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

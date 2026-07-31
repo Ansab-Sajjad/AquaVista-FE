@@ -2,7 +2,7 @@
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as yup from "yup";
 
 import {
@@ -30,6 +30,8 @@ import { DEFAULTS } from "@/config";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import { THEME_OPTIONS } from "@/constants";
+import { useThemeContext } from "@/theme/theme-provider";
 
 const validationSchema = yup.object({
   email: yup.string().required("The field is required").email("Enter a valid email"),
@@ -68,9 +70,14 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 
 export default function Page() {
   const router = useRouter();
+  const { setTheme } = useThemeContext();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTheme(THEME_OPTIONS.ORANGE);
+  }, [setTheme]);
 
   const formik = useFormik({
     initialValues: {
@@ -111,6 +118,9 @@ export default function Page() {
           localStorage.setItem("aquavista-user", JSON.stringify(data.user || {}));
           document.cookie = `aquavista-auth-token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
         }
+
+        const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
+        setTheme(roleTheme);
 
         router.push(DEFAULTS.appRoot);
       } catch (error) {

@@ -2,7 +2,7 @@
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as yup from "yup";
 
 import {
@@ -25,6 +25,8 @@ import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { cn } from "@/lib/utils";
+import { THEME_OPTIONS } from "@/constants";
+import { useThemeContext } from "@/theme/theme-provider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -68,10 +70,15 @@ export default function Page() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
 
+  const { setTheme } = useThemeContext();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTheme(THEME_OPTIONS.ORANGE);
+  }, [setTheme]);
 
   const formik = useFormik({
     initialValues: {
