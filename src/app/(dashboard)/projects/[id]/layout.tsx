@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { PropsWithChildren } from "react";
+import { PropsWithChildren, useEffect, useState } from "react";
 
-import { Box, Button, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Tab, Tabs, Typography } from "@mui/material";
 
 import { cn } from "@/lib/utils";
-import { isAdminUser } from "@/lib/auth";
+import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 
 const PROJECT_TABS = [
   { id: "dashboard", label: "Dashboard", href: (id: string) => `/projects/${id}/dashboard` },
@@ -16,11 +16,61 @@ const PROJECT_TABS = [
   { id: "users", label: "Users", href: (id: string) => `/projects/${id}/users`, adminOnly: true },
 ];
 
+type Project = {
+  id: string;
+  name: string;
+  municipality: string;
+  description?: string;
+  teamCount: number;
+  lastUpdated?: string | null;
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export default function ProjectLayout({ children }: PropsWithChildren) {
   const params = useParams();
   const pathname = usePathname();
   const projectId = (params?.id as string) || "";
   const isAdmin = isAdminUser();
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProject = async () => {
+      if (!projectId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const token = getStoredAuthToken();
+        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+        });
+
+        const data = await response.json().catch(() => null);
+        if (response.ok && data) {
+          setProject({
+            id: data.id || data._id,
+            name: data.name,
+            municipality: data.municipality,
+            description: data.description,
+            teamCount: data.teamCount ?? 0,
+            lastUpdated: data.lastUpdated || data.updatedAt,
+          });
+        }
+      } catch {
+        // Silently fail - project name will just not show
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadProject();
+  }, [projectId]);
 
   const VISIBLE_TABS = PROJECT_TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
@@ -32,10 +82,18 @@ export default function ProjectLayout({ children }: PropsWithChildren) {
         <Box className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Box>
             <Typography variant="h3" component="h1">
-              Project Workspace
+              {project?.name ? `${project.name} Workspace` : "Project Workspace"}
             </Typography>
             <Typography variant="body2" className="text-text-secondary">
-              ID: {projectId}
+              {loading ? (
+                <CircularProgress size={14} />
+              ) : project ? (
+                <>
+                  ID: {projectId}
+                </>
+              ) : (
+                <>ID: {projectId}</>
+              )}
             </Typography>
           </Box>
           <Button component={Link} href="/projects" variant="outlined" color="grey" size="small">

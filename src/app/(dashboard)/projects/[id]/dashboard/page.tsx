@@ -1,11 +1,14 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Box, Button, Card, CardContent, Chip, Typography } from "@mui/material";
 
 import { cn } from "@/lib/utils";
+import { getStoredAuthToken } from "@/lib/auth";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 type PinnedItem = {
   id: string;
@@ -17,19 +20,6 @@ type PinnedItem = {
   content: string;
 };
 
-const MOCK_PINNED: PinnedItem[] = [
-  {
-    id: "1",
-    type: "narrative",
-    title: "Revenue sufficiency summary",
-    sourceQuestion: "Is revenue sufficient to cover expenses?",
-    createdBy: "Admin",
-    createdAt: "2026-06-28",
-    content:
-      "Total operating revenue has exceeded total operating expenses in each of the last five years. The covenant is met with a comfortable margin.",
-  },
-];
-
 const TYPE_LABELS: Record<string, string> = {
   narrative: "Narrative",
   table: "Table",
@@ -39,11 +29,96 @@ const TYPE_LABELS: Record<string, string> = {
 export default function DashboardPage() {
   const params = useParams();
   const projectId = (params?.id as string) || "";
-  const [pinned, setPinned] = useState<PinnedItem[]>(MOCK_PINNED);
+  const [pinned, setPinned] = useState<PinnedItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUnpin = (id: string) => {
-    setPinned((prev) => prev.filter((item) => item.id !== id));
+  const token = getStoredAuthToken();
+
+  useEffect(() => {
+    async function fetchPinnedItems() {
+      if (!projectId || !token) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/dashboard`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to load pinned items");
+        }
+
+        const data = (await response.json()) as PinnedItem[];
+        setPinned(data);
+      } catch (err) {
+        console.error(err);
+        setError("Unable to load pinned items. Please refresh the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchPinnedItems();
+  }, [projectId, token]);
+
+  const handleUnpin = async (id: string) => {
+    if (!projectId || !token) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/dashboard/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to unpin item");
+      }
+
+      setPinned((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error(err);
+      setError("Failed to unpin item. Please try again.");
+    }
   };
+
+  if (isLoading) {
+    return (
+      <Box className="bg-background-paper shadow-darker-xs flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center">
+        <Typography variant="h3" component="h2">
+          Loading dashboard...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box className="bg-background-paper shadow-darker-xs flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center">
+        <Typography variant="h3" component="h2" className="text-error">
+          Error loading dashboard
+        </Typography>
+        <Typography variant="body1" className="text-text-secondary max-w-lg">
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
 
   if (pinned.length === 0) {
     return (

@@ -1,22 +1,31 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DeleteIcon from "@mui/icons-material/Delete";
+import DownloadIcon from "@mui/icons-material/Download";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   FormControl,
   FormLabel,
   Grid,
+  IconButton,
   Input,
   MenuItem,
   Select,
   Typography,
 } from "@mui/material";
+
+import { getStoredAuthToken } from "@/lib/auth";
 
 const DATA_TYPES = [
   "Financial Snapshot",
@@ -28,68 +37,222 @@ const DATA_TYPES = [
   "Rate Resolution",
 ];
 
-const TEMPLATES = [
-  { name: "Financial Snapshot Template", description: "Standard municipal financial snapshot layout." },
-  { name: "Customer Allocation Template", description: "Revenue and consumption by customer class." },
-  { name: "CIP Register Template", description: "Capital improvement plan register." },
-  { name: "Rate Table Template", description: "Existing rate structure and tiers." },
-  { name: "Demographics Template", description: "Population and household data." },
-];
-
 type UploadFile = {
   id: string;
   name: string;
-  type: string;
-  year: string;
+  fileType: string;
+  year?: string;
   uploadedBy: string;
   uploadedAt: string;
-  status: "processing" | "completed" | "failed";
+  status: "Processing" | "Completed" | "Failed";
+  sizeBytes?: number;
 };
 
-const MOCK_UPLOADS: UploadFile[] = [
-  {
-    id: "1",
-    name: "strasburg_financial_snapshot_2025.xlsx",
-    type: "Financial Snapshot",
-    year: "2025",
-    uploadedBy: "Admin",
-    uploadedAt: "2026-06-28",
-    status: "completed",
-  },
-];
+type TemplateFile = {
+  id: string;
+  name: string;
+  description: string;
+  fileType: string;
+  originalName: string;
+  sizeBytes: number;
+  mimeType: string;
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function DataPage() {
-  const [uploads, setUploads] = useState<UploadFile[]>(MOCK_UPLOADS);
-  const [fileType, setFileType] = useState(DATA_TYPES[0]);
-  const [year, setYear] = useState("2025");
+  const params = useParams();
+  const projectId = (params?.id as string) || "";
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
-    const file = acceptedFiles[0];
-    const newUpload: UploadFile = {
-      id: String(Date.now()),
-      name: file.name,
-      type: fileType,
-      year,
-      uploadedBy: "Admin",
-      uploadedAt: new Date().toISOString().split("T")[0],
-      status: "processing",
-    };
-    setUploads((prev) => [newUpload, ...prev]);
-    setTimeout(() => {
-      setUploads((prev) => prev.map((u) => (u.id === newUpload.id ? { ...u, status: "completed" as const } : u)));
-    }, 1500);
-  }, [fileType, year]);
+  const [uploads, setUploads] = useState<UploadFile[]>([]);
+  const [templates, setTemplates] = useState<TemplateFile[]>([]);
+  const [fileType, setFileType] = useState(DATA_TYPES[0]);
+  const [year, setYear] = useState(new Date().getFullYear().toString());
+
+  const [loadingFiles, setLoadingFiles] = useState(true);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const fetchUploadedFiles = useCallback(async () => {
+    if (!projectId) return;
+    setLoadingFiles(true);
+    try {
+      const token = getStoredAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUploads(data);
+      }
+    } catch (err) {
+      console.error("Failed to load project files:", err);
+    } finally {
+      setLoadingFiles(false);
+    }
+  }, [projectId]);
+
+  const fetchTemplates = useCallback(async () => {
+    if (!projectId) return;
+    setLoadingTemplates(true);
+    try {
+      const token = getStoredAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/templates`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data);
+      }
+    } catch (err) {
+      console.error("Failed to load templates:", err);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchUploadedFiles();
+    fetchTemplates();
+  }, [fetchUploadedFiles, fetchTemplates]);
+
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      if (acceptedFiles.length === 0 || !projectId) return;
+      const file = acceptedFiles[0];
+
+      setUploading(true);
+      setError(null);
+      setSuccessMsg(null);
+
+      try {
+        const token = getStoredAuthToken();
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("fileType", fileType);
+        if (year) {
+          formData.append("year", year);
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data`, {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to upload file");
+        }
+
+        setSuccessMsg(`File "${file.name}" uploaded successfully!`);
+        fetchUploadedFiles();
+      } catch (err: any) {
+        setError(err.message || "Upload failed");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [projectId, fileType, year, fetchUploadedFiles],
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"], "text/csv": [".csv"] },
+    accept: {
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "text/csv": [".csv"],
+      "application/pdf": [".pdf"],
+    },
   });
 
+  const handleDownloadTemplate = async (templateId: string, fileName: string) => {
+    try {
+      const token = getStoredAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/templates/${templateId}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to download template");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      setError(err.message || "Download failed");
+    }
+  };
+
+  const handleDownloadUploadedFile = async (fileId: string, fileName: string) => {
+    try {
+      const token = getStoredAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data/${fileId}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to download file");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      setError(err.message || "Download failed");
+    }
+  };
+
+  const handleDeleteUploadedFile = async (fileId: string) => {
+    try {
+      const token = getStoredAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data/${fileId}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        setSuccessMsg("File deleted successfully.");
+        fetchUploadedFiles();
+      } else {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to delete file");
+      }
+    } catch (err: any) {
+      setError(err.message || "Delete failed");
+    }
+  };
+
   const statusColor = (status: UploadFile["status"]) => {
-    if (status === "completed") return "success";
-    if (status === "processing") return "warning";
+    if (status === "Completed") return "success";
+    if (status === "Processing") return "warning";
     return "error";
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toISOString().split("T")[0];
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -103,6 +266,19 @@ export default function DataPage() {
         </Typography>
       </Box>
 
+      {error && (
+        <Alert severity="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {successMsg && (
+        <Alert severity="success" onClose={() => setSuccessMsg(null)}>
+          {successMsg}
+        </Alert>
+      )}
+
+      {/* Upload Section */}
       <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
         <CardContent className="flex flex-col gap-4 p-5">
           <Typography variant="h6">Upload project data</Typography>
@@ -128,22 +304,37 @@ export default function DataPage() {
             className="border-grey-100 hover:border-primary flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
           >
             <input {...getInputProps()} />
-            <Typography variant="body1" className={isDragActive ? "text-primary" : "text-text-secondary"}>
-              {isDragActive ? "Drop the file here" : "Drag & drop a CSV or Excel file, or click to browse"}
-            </Typography>
-            <Typography variant="caption" className="text-text-secondary">
-              Supported formats: .csv, .xlsx
-            </Typography>
+            {uploading ? (
+              <Box className="flex flex-col items-center gap-2">
+                <CircularProgress size={32} />
+                <Typography variant="body1">Uploading document...</Typography>
+              </Box>
+            ) : (
+              <>
+                <CloudUploadIcon color="action" sx={{ fontSize: 36 }} />
+                <Typography variant="body1" className={isDragActive ? "text-primary" : "text-text-secondary"}>
+                  {isDragActive ? "Drop the file here" : "Drag & drop a CSV, Excel, or PDF file, or click to browse"}
+                </Typography>
+                <Typography variant="caption" className="text-text-secondary">
+                  Supported formats: .csv, .xlsx, .pdf
+                </Typography>
+              </>
+            )}
           </Box>
         </CardContent>
       </Card>
 
+      {/* Uploaded Files Section */}
       <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
         <CardContent className="flex flex-col gap-4 p-5">
           <Typography variant="h6">Uploaded files</Typography>
-          {uploads.length === 0 ? (
+          {loadingFiles ? (
+            <Box className="flex items-center justify-center p-6">
+              <CircularProgress size={28} />
+            </Box>
+          ) : uploads.length === 0 ? (
             <Typography variant="body2" className="text-text-secondary">
-              No files uploaded yet.
+              No files uploaded yet. Select a file type and year above to upload project data.
             </Typography>
           ) : (
             <Grid container spacing={2}>
@@ -151,18 +342,33 @@ export default function DataPage() {
                 <Grid key={file.id} size={{ xs: 12, md: 6 }}>
                   <Box className="bg-grey-25 flex flex-col gap-2 rounded-2xl p-4">
                     <Box className="flex items-center justify-between gap-2">
-                      <Typography variant="body1" className="font-semibold text-text-primary">
+                      <Typography variant="body1" className="text-text-primary font-semibold">
                         {file.name}
                       </Typography>
-                      <Chip label={file.status} size="small" color={statusColor(file.status)} />
+                      <Chip label={file.status.charAt(0).toUpperCase() + file.status.slice(1)} size="small" color={statusColor(file.status)} />
                     </Box>
                     <Typography variant="body2" className="text-text-secondary">
-                      {file.type} &bull; {file.year} &bull; {file.uploadedBy} &bull; {file.uploadedAt}
+                      {file.fileType} {file.year ? `• ${file.year}` : ""} • {file.uploadedBy} •{" "}
+                      {formatDate(file.uploadedAt)} {file.sizeBytes ? `• ${formatFileSize(file.sizeBytes)}` : ""}
                     </Typography>
-                    <Box className="flex gap-2">
-                      <Button size="small" variant="outlined" color="grey">
+                    <Box className="mt-1 flex gap-2">
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => handleDownloadUploadedFile(file.id, file.name)}
+                      >
                         Download
                       </Button>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteUploadedFile(file.id)}
+                        title="Delete file"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   </Box>
                 </Grid>
@@ -172,26 +378,44 @@ export default function DataPage() {
         </CardContent>
       </Card>
 
+      {/* Baseline Templates Section */}
       <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
         <CardContent className="flex flex-col gap-4 p-5">
           <Typography variant="h6">Baseline templates</Typography>
-          <Grid container spacing={2}>
-            {TEMPLATES.map((template) => (
-              <Grid key={template.name} size={{ xs: 12, md: 6, lg: 4 }}>
-                <Box className="bg-grey-25 flex h-full flex-col gap-2 rounded-2xl p-4">
-                  <Typography variant="body1" className="font-semibold text-text-primary">
-                    {template.name}
-                  </Typography>
-                  <Typography variant="body2" className="text-text-secondary">
-                    {template.description}
-                  </Typography>
-                  <Button size="small" variant="outlined" color="grey" className="mt-auto w-fit">
-                    Download
-                  </Button>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
+          {loadingTemplates ? (
+            <Box className="flex items-center justify-center p-6">
+              <CircularProgress size={28} />
+            </Box>
+          ) : templates.length === 0 ? (
+            <Typography variant="body2" className="text-text-secondary">
+              No templates available.
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {templates.map((template) => (
+                <Grid key={template.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                  <Box className="bg-grey-25 flex h-full flex-col gap-2 rounded-2xl p-4">
+                    <Typography variant="body1" className="text-text-primary font-semibold">
+                      {template.name}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary">
+                      {template.description}
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<DownloadIcon />}
+                      className="mt-auto w-fit"
+                      onClick={() => handleDownloadTemplate(template.id, template.originalName)}
+                    >
+                      Download
+                    </Button>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </CardContent>
       </Card>
     </Box>

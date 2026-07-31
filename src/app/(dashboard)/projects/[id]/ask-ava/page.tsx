@@ -1,13 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import { Box, Button, Card, CardContent, Chip, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, TextField, Typography } from "@mui/material";
+import { PushPin } from "@mui/icons-material";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
+  TextField,
+  Typography,
+} from "@mui/material";
 
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { AquaVista } from "@/lib/AquaVista";
 import { getStoredAuthToken } from "@/lib/auth";
-import { useAuthUser } from "@/hooks/use-auth-user";
 import { cn } from "@/lib/utils";
 
 type Message = {
@@ -16,6 +31,7 @@ type Message = {
   content: string;
   type?: "narrative" | "table" | "chart";
   title?: string;
+  isPinned?: boolean;
 };
 
 type ChatSummary = {
@@ -30,7 +46,7 @@ type ChatSummary = {
 type ChatRecord = {
   _id: string;
   title: string;
-  messages: Array<Omit<Message, "id"> & { createdAt?: string; _id?: string }>;
+  messages: (Omit<Message, "id"> & { createdAt?: string; _id?: string })[];
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -52,6 +68,8 @@ export default function AskAvaPage() {
   const [isThinking, setIsThinking] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pinnedChatId, setPinnedChatId] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<"gemini" | "groq" | "ollama">("gemini");
 
   const token = getStoredAuthToken();
   const authUser = useAuthUser();
@@ -129,7 +147,7 @@ export default function AskAvaPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (!chatRes.ok) {
@@ -141,9 +159,7 @@ export default function AskAvaPage() {
       setChatTitle(title);
 
       const persistedMessages = chat.messages.map((message, index) => ({
-        id:
-          message._id ||
-          `${message.role}-${index}-${message.createdAt?.toString() ?? Date.now().toString()}`,
+        id: message._id || `${message.role}-${index}-${message.createdAt?.toString() ?? Date.now().toString()}`,
         role: message.role,
         content: message.content,
         type: message.type,
@@ -154,6 +170,26 @@ export default function AskAvaPage() {
         setMessages(persistedMessages);
       } else {
         setMessages([WELCOME_MESSAGE]);
+      }
+
+      // Fetch pinned chat status
+      try {
+        const pinnedRes = await fetch(
+          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}/pinned-messages`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (pinnedRes.ok) {
+          const pinnedData = await pinnedRes.json();
+          setPinnedChatId(pinnedData.pinnedMessageIds?.[0] || null);
+        }
+      } catch (err) {
+        console.error("Failed to load pinned chat status:", err);
+        // Continue without pinned state
       }
     } catch (err) {
       console.error(err);
@@ -181,8 +217,8 @@ export default function AskAvaPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ content: userMessage.content }),
-        }
+          body: JSON.stringify({ content: userMessage.content, provider: selectedProvider }),
+        },
       );
 
       if (!response.ok) {
@@ -191,14 +227,18 @@ export default function AskAvaPage() {
         throw new Error(message);
       }
 
-      const payload = await response.json() as { messages: Message[] };
-      setMessages((prev) => [...prev, ...payload.messages.map((item, index) => ({
-        id: `${Date.now()}-${index}`,
-        role: item.role,
-        content: item.content,
-        type: item.type,
-        title: item.title,
-      }))]);
+      const payload = (await response.json()) as { messages: Message[] };
+      const assistantMessages = payload.messages.filter((item) => item.role === "assistant");
+      setMessages((prev) => [
+        ...prev,
+        ...assistantMessages.map((item, index) => ({
+          id: `${Date.now()}-${index}`,
+          role: item.role,
+          content: item.content,
+          type: item.type,
+          title: item.title,
+        })),
+      ]);
     } catch (err) {
       console.error(err);
       setError((err as Error).message || "AVA is temporarily unavailable. Please try again.");
@@ -207,9 +247,56 @@ export default function AskAvaPage() {
     }
   };
 
-  const handlePin = (message: Message) => {
-    // In a real app this would pin to the dashboard.
-    alert(`Pinned "${message.title || message.content.slice(0, 40)}..." to the Dashboard`);
+  const handlePin = async (message: Message) => {
+    if (!projectId || !token || !chatId) return;
+
+    const isCurrentlyPinned = pinnedChatId === chatId;
+
+    if (isCurrentlyPinned) {
+      // Unpin the chat
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/unpin`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        if (!response.ok) {
+          throw new Error("Failed to unpin message");
+        }
+        setPinnedChatId(null);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      // Pin the chat (using the message content)
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/pin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              content: message.content,
+              type: message.type || "narrative",
+              title: message.title || "AquaVista Assistant",
+            }),
+          },
+        );
+        if (!response.ok) {
+          throw new Error("Failed to pin message");
+        }
+        setPinnedChatId(chatId);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -236,50 +323,72 @@ export default function AskAvaPage() {
       <Card className="bg-background-paper shadow-darker-xs flex h-[calc(100vh-22rem)] flex-col rounded-3xl">
         <CardContent className="flex h-full flex-col gap-4 p-5">
           <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
-            <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for clarification when the data is incomplete.
+            <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
+            {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for
+            clarification when the data is incomplete.
           </Box>
 
-          {authUser.role === "admin" ? (
-            <Box className="mb-4 w-full max-w-sm">
+          <Box className="mb-4 flex flex-wrap gap-4">
+            <Box className="w-full max-w-sm">
               <FormControl fullWidth>
-                <InputLabel id="ava-chat-select-label">Select conversation</InputLabel>
+                <InputLabel id="ava-provider-select-label">AI Agent / Model</InputLabel>
                 <Select
-                  labelId="ava-chat-select-label"
-                  value={chatId || ""}
-                  label="Select conversation"
-                  onChange={(event: SelectChangeEvent<string>) => {
-                    const selectedId = event.target.value;
-                    const selectedChat = chatList.find((chat) => chat._id === selectedId);
-                    if (selectedChat) {
-                      loadChat(selectedChat._id, selectedChat.title || "New conversation");
-                    }
+                  labelId="ava-provider-select-label"
+                  value={selectedProvider}
+                  label="AI Agent / Model"
+                  onChange={(event: SelectChangeEvent<"gemini" | "groq" | "ollama">) => {
+                    setSelectedProvider(event.target.value);
                   }}
                 >
-                  {chatList.length > 0 ? (
-                    chatList.map((chat) => (
-                      <MenuItem key={chat._id} value={chat._id}>
-                        {chat.title || "Untitled conversation"}
-                      </MenuItem>
-                    ))
-                  ) : (
-                    <MenuItem value="" disabled>
-                      No conversations yet
-                    </MenuItem>
-                  )}
+                  <MenuItem value="gemini">⚡ Google Gemini</MenuItem>
+                  <MenuItem value="groq">🚀 Groq - Llama 3.3</MenuItem>
+                  <MenuItem value="ollama">🦙 Ollama / OpenRouter - DeepSeek R1</MenuItem>
                 </Select>
               </FormControl>
             </Box>
-          ) : null}
+
+            {authUser.role === "admin" ? (
+              <Box className="w-full max-w-sm">
+                <FormControl fullWidth>
+                  <InputLabel id="ava-chat-select-label">Select conversation</InputLabel>
+                  <Select
+                    labelId="ava-chat-select-label"
+                    value={chatId || ""}
+                    label="Select conversation"
+                    onChange={(event: SelectChangeEvent<string>) => {
+                      const selectedId = event.target.value;
+                      const selectedChat = chatList.find((chat) => chat._id === selectedId);
+                      if (selectedChat) {
+                        loadChat(selectedChat._id, selectedChat.title || "New conversation");
+                      }
+                    }}
+                  >
+                    {chatList.length > 0 ? (
+                      chatList.map((chat) => (
+                        <MenuItem key={chat._id} value={chat._id}>
+                          {chat.title || "Untitled conversation"}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value="" disabled>
+                        No conversations yet
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+              </Box>
+            ) : null}
+          </Box>
 
           <Box className="flex-1 space-y-4 overflow-y-auto pr-2">
             {isLoading ? (
-              <Box className="rounded-3xl bg-grey-50 p-6 text-center text-text-secondary">
+              <Box className="bg-grey-50 text-text-secondary rounded-3xl p-6 text-center">
                 <Typography>Loading Ask AVA conversation...</Typography>
               </Box>
             ) : null}
 
             {error ? (
-              <Box className="rounded-3xl bg-error/10 p-4 text-error">
+              <Box className="bg-error/10 text-error rounded-3xl p-4">
                 <Typography>{error}</Typography>
               </Box>
             ) : null}
@@ -287,15 +396,14 @@ export default function AskAvaPage() {
             {messages.map((message) => (
               <Box
                 key={message.id}
-                className={cn(
-                  "flex w-full",
-                  message.role === "user" ? "justify-end" : "justify-start",
-                )}
+                className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}
               >
                 <Box
                   className={cn(
                     "max-w-[80%] rounded-3xl px-5 py-3",
-                    message.role === "user" ? "bg-primary text-white rounded-br-sm" : "bg-grey-50 text-text-primary rounded-bl-sm",
+                    message.role === "user"
+                      ? "bg-primary rounded-br-sm text-white"
+                      : "bg-grey-50 text-text-primary rounded-bl-sm",
                   )}
                 >
                   {message.role === "assistant" && (
@@ -306,12 +414,14 @@ export default function AskAvaPage() {
                       {message.id !== "welcome" && (
                         <IconButton
                           size="small"
-                          color="primary"
                           className="h-6 w-6"
                           onClick={() => handlePin(message)}
-                          title="Pin to Dashboard"
+                          title={pinnedChatId === chatId ? "Unpin from Dashboard" : "Pin to Dashboard"}
                         >
-                          <Typography className="text-sm">📌</Typography>
+                          <PushPin
+                            className={pinnedChatId === chatId ? "text-primary" : "text-text-secondary"}
+                            fontSize="small"
+                          />
                         </IconButton>
                       )}
                     </Box>
@@ -319,7 +429,7 @@ export default function AskAvaPage() {
                   <Typography
                     variant="body2"
                     className={cn(
-                      "whitespace-pre-wrap leading-relaxed",
+                      "leading-relaxed whitespace-pre-wrap",
                       message.role === "user" ? "text-white" : "text-text-primary",
                     )}
                   >
@@ -331,14 +441,14 @@ export default function AskAvaPage() {
 
             {isThinking && (
               <Box className="flex w-full justify-start">
-                <Box className="bg-grey-50 rounded-3xl rounded-bl-sm px-5 py-3 text-text-primary">
+                <Box className="bg-grey-50 text-text-primary rounded-3xl rounded-bl-sm px-5 py-3">
                   <Typography variant="body2">AVA is thinking...</Typography>
                 </Box>
               </Box>
             )}
           </Box>
 
-              <Box className="mt-auto flex items-start gap-2 pt-2">
+          <Box className="mt-auto flex items-start gap-2 pt-2">
             <TextField
               fullWidth
               multiline={false}
