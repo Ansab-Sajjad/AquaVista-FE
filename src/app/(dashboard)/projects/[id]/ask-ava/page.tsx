@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PushPin } from "@mui/icons-material";
 import {
@@ -20,7 +20,6 @@ import {
   Typography,
 } from "@mui/material";
 
-import { useAuthUser } from "@/hooks/use-auth-user";
 import { AquaVista } from "@/lib/AquaVista";
 import { getStoredAuthToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -32,15 +31,6 @@ type Message = {
   type?: "narrative" | "table" | "chart";
   title?: string;
   isPinned?: boolean;
-};
-
-type ChatSummary = {
-  _id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  totalInputTokens: number;
-  totalOutputTokens: number;
 };
 
 type ChatRecord = {
@@ -63,7 +53,6 @@ export default function AskAvaPage() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [chatTitle, setChatTitle] = useState("New conversation");
-  const [chatList, setChatList] = useState<ChatSummary[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,69 +61,17 @@ export default function AskAvaPage() {
   const [selectedProvider, setSelectedProvider] = useState<"gemini" | "groq" | "ollama">("gemini");
 
   const token = getStoredAuthToken();
-  const authUser = useAuthUser();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    async function fetchChat() {
-      if (!projectId || !token) {
-        setIsLoading(false);
-        return;
-      }
+    scrollToBottom();
+  }, [messages]);
 
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const chatsRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!chatsRes.ok) {
-          throw new Error("Failed to load chat list");
-        }
-
-        const chats = (await chatsRes.json()) as ChatSummary[];
-        setChatList(chats);
-
-        let selectedChat = chats[0];
-
-        if (!selectedChat) {
-          const createRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ title: "Ask AVA conversation" }),
-          });
-
-          if (!createRes.ok) {
-            throw new Error("Failed to create Ask AVA chat");
-          }
-
-          selectedChat = await createRes.json();
-          setChatList((prev) => [selectedChat, ...prev]);
-        }
-
-        if (!selectedChat) {
-          throw new Error("No Ask AVA chat available");
-        }
-
-        await loadChat(selectedChat._id, selectedChat.title || "New conversation");
-      } catch (err) {
-        console.error(err);
-        setError("Unable to load Ask AVA. Please refresh the page.");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchChat();
-  }, [projectId, token]);
-
-  const loadChat = async (selectedChatId: string, title: string) => {
+  const loadChat = useCallback(async (selectedChatId: string, title: string) => {
     if (!projectId || !token) return;
 
     setIsLoading(true);
@@ -197,7 +134,65 @@ export default function AskAvaPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId, token]);
+
+  useEffect(() => {
+    async function fetchChat() {
+      if (!projectId || !token) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const chatsRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!chatsRes.ok) {
+          throw new Error("Failed to load chat list");
+        }
+
+        const chats = (await chatsRes.json()) as any[];
+        
+        let selectedChat = chats[0];
+
+        if (!selectedChat) {
+          const createRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title: "Ask AVA conversation" }),
+          });
+
+          if (!createRes.ok) {
+            throw new Error("Failed to create Ask AVA chat");
+          }
+
+          selectedChat = await createRes.json();
+        }
+
+        if (!selectedChat) {
+          throw new Error("No Ask AVA chat available");
+        }
+
+        await loadChat(selectedChat._id, selectedChat.title || "New conversation");
+      } catch (err) {
+        console.error(err);
+        setError("Unable to load Ask AVA. Please refresh the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchChat();
+  }, [projectId, token, loadChat]);
 
   const sendMessage = async () => {
     if (!input.trim() || isThinking || !projectId || !token || !chatId) return;
@@ -346,38 +341,6 @@ export default function AskAvaPage() {
                 </Select>
               </FormControl>
             </Box>
-
-            {authUser.role === "admin" ? (
-              <Box className="w-full max-w-sm">
-                <FormControl fullWidth>
-                  <InputLabel id="ava-chat-select-label">Select conversation</InputLabel>
-                  <Select
-                    labelId="ava-chat-select-label"
-                    value={chatId || ""}
-                    label="Select conversation"
-                    onChange={(event: SelectChangeEvent<string>) => {
-                      const selectedId = event.target.value;
-                      const selectedChat = chatList.find((chat) => chat._id === selectedId);
-                      if (selectedChat) {
-                        loadChat(selectedChat._id, selectedChat.title || "New conversation");
-                      }
-                    }}
-                  >
-                    {chatList.length > 0 ? (
-                      chatList.map((chat) => (
-                        <MenuItem key={chat._id} value={chat._id}>
-                          {chat.title || "Untitled conversation"}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem value="" disabled>
-                        No conversations yet
-                      </MenuItem>
-                    )}
-                  </Select>
-                </FormControl>
-              </Box>
-            ) : null}
           </Box>
 
           <Box className="flex-1 space-y-4 overflow-y-auto pr-2">
@@ -446,6 +409,7 @@ export default function AskAvaPage() {
                 </Box>
               </Box>
             )}
+            <div ref={messagesEndRef} />
           </Box>
 
           <Box className="mt-auto flex items-start gap-2 pt-2">
