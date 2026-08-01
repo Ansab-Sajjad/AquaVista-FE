@@ -10,16 +10,27 @@ interface AuthUser {
   email?: string;
   role?: string;
   status?: string;
+  image?: string;
 }
 
 export function useAuthUser(): AuthUser {
   const [user, setUser] = useState<AuthUser>({});
 
   useEffect(() => {
-    const stored = getStoredAuthUser();
-    if (stored) {
-      setUser(stored);
-    }
+    const loadUser = () => {
+      const stored = getStoredAuthUser();
+      setUser(stored ?? {});
+    };
+
+    loadUser();
+
+    window.addEventListener("storage", loadUser);
+    window.addEventListener("auth-user-change", loadUser);
+
+    return () => {
+      window.removeEventListener("storage", loadUser);
+      window.removeEventListener("auth-user-change", loadUser);
+    };
   }, []);
 
   return user;

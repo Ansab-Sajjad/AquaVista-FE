@@ -21,11 +21,13 @@ import {
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
+import { DEFAULTS } from "@/config";
+import { THEME_OPTIONS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
+import { setAuthCookies } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { THEME_OPTIONS } from "@/constants";
 import { useThemeContext } from "@/theme/theme-provider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -113,12 +115,12 @@ export default function Page() {
           throw new Error(data?.message || "Unable to reset your password. Please try again.");
         }
 
-        if (typeof window !== "undefined" && data?.token) {
-          localStorage.setItem("aquavista-auth-token", data.token);
+        if (data?.token) {
+          setAuthCookies(data.token, data.user || {});
         }
 
         setSuccessMessage(data?.message || "Password reset successful.");
-        setTimeout(() => router.push("/auth/sign-in"), 1000);
+        setTimeout(() => router.push(DEFAULTS.appRoot), 1000);
       } catch (error) {
         setAuthError(error instanceof Error ? error.message : "Unable to reset your password. Please try again.");
       } finally {

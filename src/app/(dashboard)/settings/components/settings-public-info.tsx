@@ -19,13 +19,16 @@ import {
   TextareaAutosize,
   Typography,
 } from "@mui/material";
+import { CameraAlt } from "@mui/icons-material";
 
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
-import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
+import { getStoredAuthToken, getStoredAuthUser, normalizeAvatarUrl, setAuthCookies } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other", "Not Specified"];
+const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg"];
 
 interface ProfileData {
   name: string;
@@ -38,6 +41,7 @@ interface ProfileData {
   bio: string;
   phone: string;
   jobTitle: string;
+  profileImage: string;
 }
 
 export default function SettingsPublicInfo() {
@@ -52,11 +56,15 @@ export default function SettingsPublicInfo() {
     bio: "",
     phone: "",
     jobTitle: "",
+    profileImage: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -78,6 +86,7 @@ export default function SettingsPublicInfo() {
           bio: data.bio ?? "",
           phone: data.phone ?? "",
           jobTitle: data.jobTitle ?? "",
+          profileImage: normalizeAvatarUrl(data.image ?? ""),
         });
       } catch (err) {
         const stored = getStoredAuthUser();
@@ -87,6 +96,7 @@ export default function SettingsPublicInfo() {
             name: stored.name ?? "",
             email: stored.email ?? "",
             company: stored.company ?? "",
+            profileImage: stored.image ?? "",
           }));
         }
         setError(err instanceof Error ? err.message : "Failed to load profile.");
@@ -104,9 +114,11 @@ export default function SettingsPublicInfo() {
   const handleSave = async () => {
     setSaving(true);
     setError(null);
+    setUploadError(null);
     setSuccess(false);
     try {
       const token = getStoredAuthToken();
+
       const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -122,15 +134,78 @@ export default function SettingsPublicInfo() {
           jobTitle: profile.jobTitle,
         }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to update profile.");
-      setProfile((p) => ({ ...p, ...data }));
+
+      let updatedProfile = {
+        ...profile,
+        ...data,
+        profileImage: normalizeAvatarUrl(data.image ?? profile.profileImage),
+        image: normalizeAvatarUrl(data.image ?? profile.profileImage),
+      };
+
+      if (selectedAvatar) {
+        const avatarForm = new FormData();
+        avatarForm.append("avatar", selectedAvatar);
+
+        const avatarRes = await fetch(`${API_BASE_URL}/api/auth/me/avatar`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: avatarForm,
+        });
+
+        const avatarData = await avatarRes.json();
+        if (!avatarRes.ok) throw new Error(avatarData?.message || "Failed to upload profile image.");
+
+        const imageUrl = normalizeAvatarUrl(avatarData?.image ?? updatedProfile.profileImage);
+        updatedProfile = {
+          ...updatedProfile,
+          ...avatarData,
+          profileImage: imageUrl,
+          image: imageUrl,
+        };
+
+        setSelectedAvatar(null);
+        setAvatarPreview("");
+      }
+
+      setProfile(updatedProfile as ProfileData);
+      if (token) {
+        const currentUser = getStoredAuthUser() ?? {};
+        setAuthCookies(token, {
+          ...currentUser,
+          ...updatedProfile,
+          image: updatedProfile.image ?? updatedProfile.profileImage,
+        });
+      }
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile.");
+      const message = err instanceof Error ? err.message : "Failed to update profile.";
+      setError(message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleAvatarSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setUploadError("Please select a PNG or JPG image.");
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      setUploadError("File size should not be greater than 5MB.");
+      return;
+    }
+
+    const preview = URL.createObjectURL(file);
+    setSelectedAvatar(file);
+    setAvatarPreview(preview);
   };
 
   if (loading) {
@@ -159,10 +234,30 @@ export default function SettingsPublicInfo() {
           {/* Picture */}
           <FormControl className="outlined lg:flex-row lg:gap-2.5 relative items-start" variant="standard" size="small" fullWidth>
             <FormLabel component="label" className="min-w-60">Picture</FormLabel>
-            <Box className="relative">
-              <Avatar alt="avatar" src="/images/avatars/avatar-1.jpg" className="h-20 w-20 rounded-4xl" />
+            <Box className="relative flex items-center gap-4">
+              <Box className="relative">
+                <Avatar
+                  alt={profile.name || "avatar"}
+                  src={avatarPreview || profile.profileImage || "/images/avatars/avatar-1.jpg"}
+                  className="h-20 w-20 rounded-4xl"
+                />
+                <Button
+                  component="label"
+                  className="absolute right-0 bottom-0 rounded-full border border-white bg-background-paper p-1 shadow-sm"
+                  size="small"
+                >
+                  <CameraAlt fontSize="small" />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    hidden
+                    onChange={handleAvatarSelect}
+                  />
+                </Button>
+              </Box>
             </Box>
           </FormControl>
+          {uploadError && <Typography variant="body2" className="text-danger mb-4">{uploadError}</Typography>}
 
           {/* Name */}
           <FormControl className="outlined lg:flex-row lg:gap-2.5" variant="standard" size="small" fullWidth>

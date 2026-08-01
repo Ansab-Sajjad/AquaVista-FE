@@ -39,4 +39,24 @@ export function useAuthGuard() {
       router.replace("/auth/sign-in");
     }
   }, [pathname, router]);
+
+  useEffect(() => {
+    function handleStorageChange(event: StorageEvent) {
+      if (event.key !== "aquavista-auth-token") {
+        return;
+      }
+
+      if (isPublicPath(pathname)) {
+        return;
+      }
+
+      if (!event.newValue) {
+        // Auth token was removed in another tab — sign out this tab too.
+        router.replace("/auth/sign-in");
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [pathname, router]);
 }

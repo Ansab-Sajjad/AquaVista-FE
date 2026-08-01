@@ -27,10 +27,11 @@ import {
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { THEME_OPTIONS } from "@/constants";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
-import { THEME_OPTIONS } from "@/constants";
+import { setAuthCookies } from "@/lib/auth";
 import { useThemeContext } from "@/theme/theme-provider";
 
 const validationSchema = yup.object({
@@ -113,11 +114,7 @@ export default function Page() {
           throw new Error("Authentication token was not returned by the server.");
         }
 
-        if (typeof window !== "undefined") {
-          localStorage.setItem("aquavista-auth-token", data.token);
-          localStorage.setItem("aquavista-user", JSON.stringify(data.user || {}));
-          document.cookie = `aquavista-auth-token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-        }
+        setAuthCookies(data.token, data.user || {});
 
         const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
         setTheme(roleTheme);

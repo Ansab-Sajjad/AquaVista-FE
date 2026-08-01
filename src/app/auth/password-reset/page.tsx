@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 import {
@@ -23,7 +22,6 @@ import { useThemeContext } from "@/theme/theme-provider";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function Page() {
-  const router = useRouter();
   const { setTheme } = useThemeContext();
   const [data, setData] = useState({
     email: "",
@@ -31,6 +29,7 @@ export default function Page() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     setTheme(THEME_OPTIONS.ORANGE);
@@ -59,7 +58,7 @@ export default function Page() {
 
       setSuccessMessage(result?.message || "If an account exists for this email, you'll receive a reset link shortly.");
       setData({ email: "" });
-      setTimeout(() => router.push("/auth/sign-in"), 1200);
+      setSent(true);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to send the reset email. Please try again.");
     } finally {
@@ -79,78 +78,88 @@ export default function Page() {
             <Box className="flex flex-col gap-10">
               <Box className="flex flex-col">
                 <Typography variant="h1" component="h1" className="mb-2">
-                  Reset Password
+                  {sent ? "Check your inbox" : "Reset Password"}
                 </Typography>
                 <Typography variant="body1" className="text-text-primary">
-                  Get an email about how to reset your password securely.
+                  {sent
+                    ? "We have sent a secure reset link to the email address you provided."
+                    : "Get an email about how to reset your password securely."}
                 </Typography>
               </Box>
 
-              <Box className="flex flex-col gap-5">
-                <Box component={"form"} onSubmit={handleSubmit} className="flex flex-col">
-                  <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label">Email</FormLabel>
-                    <Input
-                      placeholder=""
-                      value={data.email}
-                      onChange={(e) => setData({ ...data, email: e.target.value })}
-                    />
-                  </FormControl>
-
-                  {errorMessage && (
-                    <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
-                      <AlertTitle variant="subtitle2">Reset request failed</AlertTitle>
-                      <Typography variant="body2" className="text-text-primary">
-                        {errorMessage}
-                      </Typography>
-                    </Alert>
-                  )}
-
-                  {successMessage && (
-                    <Alert severity="success" className="neutral bg-background-paper/60! mb-4">
-                      <AlertTitle variant="subtitle2">Check your inbox</AlertTitle>
-                      <Typography variant="body2" className="text-text-primary">
-                        {successMessage}
-                      </Typography>
-                    </Alert>
-                  )}
-
-                  <Box className="flex flex-col gap-2">
-                    <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
-                      {isSubmitting ? "Sending..." : "Continue"}
-                    </Button>
-                  </Box>
-
-                  <Typography variant="body2" className="text-text-secondary">
-                    By clicking Continue, Sign in with Google, or Sign in with GitHub, you agree to the{" "}
-                    <Link
-                      target="_blank"
-                      href="/auth/terms-and-conditions"
-                      className="link-primary link-underline-hover"
-                    >
-                      Terms and Conditions
-                    </Link>{" "}
-                    and{" "}
-                    <Link target="_blank" href="/auth/privacy-policy" className="link-primary link-underline-hover">
-                      Privacy Policy
-                    </Link>
-                    .
-                  </Typography>
-                </Box>
-              </Box>
-              <Divider className="text-text-secondary my-0 text-sm"></Divider>
-              <Box className="flex flex-col">
-                <Typography variant="h6" component="h6">
-                  Sign in
-                </Typography>
-                <Typography variant="body1" className="text-text-secondary">
-                  If you already have an account, please{" "}
-                  <Link href="/auth/sign-in" className="link-primary link-underline-hover">
-                    sign in
+              {sent ? (
+                <Box className="flex flex-col gap-5">
+                  <Alert severity="success" className="neutral bg-background-paper/60! mb-4">
+                    <AlertTitle variant="subtitle2">Reset link sent</AlertTitle>
+                    <Typography variant="body2" className="text-text-primary">
+                      {successMessage}
+                    </Typography>
+                  </Alert>
+                  <Link
+                    href="/auth/sign-in"
+                    className="link-primary link-underline-hover text-center text-sm font-semibold"
+                  >
+                    Back to sign in
                   </Link>
-                  .
-                </Typography>
-              </Box>
+                </Box>
+              ) : (
+                <Box className="flex flex-col gap-5">
+                  <Box component={"form"} onSubmit={handleSubmit} className="flex flex-col">
+                    <FormControl className="outlined" variant="standard" size="small">
+                      <FormLabel component="label">Email</FormLabel>
+                      <Input
+                        placeholder=""
+                        value={data.email}
+                        onChange={(e) => setData({ ...data, email: e.target.value })}
+                      />
+                    </FormControl>
+
+                    {errorMessage && (
+                      <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
+                        <AlertTitle variant="subtitle2">Reset request failed</AlertTitle>
+                        <Typography variant="body2" className="text-text-primary">
+                          {errorMessage}
+                        </Typography>
+                      </Alert>
+                    )}
+
+                    <Box className="flex flex-col gap-2">
+                      <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
+                        {isSubmitting ? "Sending..." : "Continue"}
+                      </Button>
+                    </Box>
+
+                    <Typography variant="body2" className="text-text-secondary">
+                      By clicking Continue, Sign in with Google, or Sign in with GitHub, you agree to the{" "}
+                      <Link
+                        target="_blank"
+                        href="/auth/terms-and-conditions"
+                        className="link-primary link-underline-hover"
+                      >
+                        Terms and Conditions
+                      </Link>{" "}
+                      and{" "}
+                      <Link target="_blank" href="/auth/privacy-policy" className="link-primary link-underline-hover">
+                        Privacy Policy
+                      </Link>
+                      .
+                    </Typography>
+                  </Box>
+                  <Divider className="text-text-secondary my-0 text-sm"></Divider>
+                  <Box className="flex flex-col">
+                    <Typography variant="h6" component="h6">
+                      Sign in
+                    </Typography>
+                    <Typography variant="body1" className="text-text-secondary">
+                      If you already have an account, please{" "}
+                      <Link href="/auth/sign-in" className="link-primary link-underline-hover">
+                        sign in
+                      </Link>
+                      .
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
             </Box>
           </Box>
         </Box>

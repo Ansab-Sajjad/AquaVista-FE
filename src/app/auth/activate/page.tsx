@@ -26,6 +26,7 @@ import { DEFAULTS } from "@/config";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
+import { setAuthCookies } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -108,8 +109,8 @@ export default function Page() {
           throw new Error(data?.message || "Unable to activate your account. Please try again.");
         }
 
-        if (typeof window !== "undefined" && data?.token) {
-          localStorage.setItem("aquavista-auth-token", data.token);
+        if (data?.token) {
+          setAuthCookies(data.token, data.user || {});
         }
 
         setSuccessMessage(data?.message || "Account activated successfully.");

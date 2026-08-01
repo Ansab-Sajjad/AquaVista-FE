@@ -12,6 +12,7 @@ import Main from "@/components/layout/containers/main";
 import LeftMenu from "@/components/layout/menu/left-menu";
 import MenuBackdrop from "@/components/layout/menu/menu-backdrop";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { isAuthenticated } from "@/lib/auth";
 
 LicenseInfo.setLicenseKey(process.env.NEXT_PUBLIC_MUI_X_LICENSE_KEY || "");
 
@@ -29,6 +30,10 @@ export default function DashboardLayout({
 
   if (!isMounted) {
     return null;
+  }
+
+  if (!isAuthenticated()) {
+    return <Loading />;
   }
 
   return (

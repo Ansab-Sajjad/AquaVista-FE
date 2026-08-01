@@ -1,6 +1,26 @@
 const AUTH_TOKEN_KEY = "aquavista-auth-token";
 const AUTH_USER_KEY = "aquavista-user";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+function getDefaultApiBaseUrl() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  if (API_BASE_URL) {
+    return API_BASE_URL;
+  }
+  return window.location.origin;
+}
+
+export function normalizeAvatarUrl(url?: string | null) {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/uploads")) {
+    const baseUrl = getDefaultApiBaseUrl();
+    return `${baseUrl}${url}`;
+  }
+  return url;
+}
 
 export function getStoredAuthToken() {
   if (typeof window === "undefined") {
@@ -15,13 +35,17 @@ export function getStoredAuthUser() {
     return null;
   }
 
-  const rawUser = window.localStorage.getItem(AUTH_USER_KEY);
-  if (!rawUser) {
+  const raw = window.localStorage.getItem(AUTH_USER_KEY);
+  if (!raw) {
     return null;
   }
 
   try {
-    return JSON.parse(rawUser);
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "image" in parsed) {
+      return { ...parsed, image: normalizeAvatarUrl(String(parsed.image || "")) };
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -51,6 +75,23 @@ export function isAdminUser() {
   return false;
 }
 
+export function setAuthCookies(token: string, user: Record<string, unknown> | null = null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+
+  if (user) {
+    const normalizedUser = {
+      ...user,
+      image: normalizeAvatarUrl(String((user as any).image || "")),
+    };
+    window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(normalizedUser));
+    window.dispatchEvent(new CustomEvent("auth-user-change", { detail: normalizedUser }));
+  }
+}
+
 export function clearAuthState() {
   if (typeof window === "undefined") {
     return;
@@ -58,27 +99,4 @@ export function clearAuthState() {
 
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
   window.localStorage.removeItem(AUTH_USER_KEY);
-  document.cookie = `${AUTH_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-}
-
-export async function logoutUser(router?: { replace: (path: string) => void }) {
-  const token = getStoredAuthToken();
-  clearAuthState();
-  router?.replace("/auth/sign-in");
-
-  if (!token) {
-    return;
-  }
-
-  try {
-    await fetch(`${API_BASE_URL}/api/auth/logout`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-  } catch {
-    // Ignore logout failures and still redirect the user.
-  }
 }

@@ -30,6 +30,7 @@ export type MenuItem = {
   isExternalLink?: boolean;
   content?: React.ReactNode;
   hideInMenu?: boolean;
+  adminOnly?: boolean;
 };
 
 export enum ContentType {

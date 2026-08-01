@@ -21,11 +21,9 @@
 */
 @layer theme, base, mui, components, style, utilities;
 
-@layer components {
-  @import "react-big-calendar/lib/css/react-big-calendar.css";
-  @import "swiper/css";
-  @import "react-quill-new/dist/quill.snow.css";
-}
+@import "react-big-calendar/lib/css/react-big-calendar.css";
+@import "swiper/css" layer(components);
+@import "react-quill-new/dist/quill.snow.css" layer(components);
 
 @import "tailwindcss";
 @config "../../tailwind.config.ts";

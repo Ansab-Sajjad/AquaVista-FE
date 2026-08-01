@@ -25,7 +25,11 @@ export default function UserProfileMenu({ selected }: UserProfileMenuProps) {
     <Card className="mb-5">
       <CardContent className="flex flex-col items-center gap-5">
         <Box className="flex flex-col items-center">
-          <Avatar alt="avatar" src="/images/avatars/avatar-1.jpg" className="mb-2 h-20 w-20 rounded-4xl" />
+          <Avatar
+            alt={authUser.name ?? "avatar"}
+            src={authUser.image || "/images/avatars/avatar-1.jpg"}
+            className="mb-2 h-20 w-20 rounded-4xl"
+          />
           <Typography variant="subtitle1" component="p">
             {authUser.name ?? ""}
           </Typography>

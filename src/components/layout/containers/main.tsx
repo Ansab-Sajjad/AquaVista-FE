@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { PropsWithChildren, useEffect, useMemo, useState } from "react";
 
 import { useLayoutContext } from "@/components/layout/layout-context";
+import { isAdminUser } from "@/lib/auth";
 import { isPathMatch } from "@/lib/utils";
 import { leftMenuItems } from "@/menu-items";
 import { leftMenuBottomItems } from "@/menu-items";
@@ -22,7 +23,15 @@ export default function Main({ children }: PropsWithChildren) {
   const [activeItem, setActiveItem] = useState<MenuItem | undefined>(undefined);
 
   useEffect(() => {
-    let selectedMenu = leftMenuItems.find((item) => item.href && isPathMatch(pathname, item.href));
+    const visibleMenuItems: MenuItem[] = leftMenuItems.map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => !child.adminOnly || isAdminUser()),
+    }));
+    let selectedMenu = visibleMenuItems.find(
+      (item) =>
+        (item.href && isPathMatch(pathname, item.href)) ||
+        item.children?.some((child) => child.href && isPathMatch(pathname, child.href)),
+    );
     if (!selectedMenu && leftMenuBottomItems) {
       selectedMenu = leftMenuBottomItems.find((item) => item.href && isPathMatch(pathname, item.href));
     }

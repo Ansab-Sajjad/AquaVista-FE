@@ -27,6 +27,7 @@ import MenuItem from "@mui/material/MenuItem";
 import MenuList from "@mui/material/MenuList";
 import Popper from "@mui/material/Popper";
 
+import { useAuthUser } from "@/hooks/use-auth-user";
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
@@ -35,13 +36,12 @@ import NiQuestionHexagon from "@/icons/nexture/ni-question-hexagon";
 import NiSettings from "@/icons/nexture/ni-settings";
 import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
-import { logoutUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { useAuthUser } from "@/hooks/use-auth-user";
 
 export default function User() {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef<HTMLButtonElement>(null);
+  const router = useRouter();
   const t = useTranslations("dashboard");
   const authUser = useAuthUser();
 
@@ -49,14 +49,12 @@ export default function User() {
     setOpen((prevOpen) => !prevOpen);
   };
 
-  const handleClose = (event: Event | React.SyntheticEvent) => {
-    if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
+  const handleClose = (event?: Event | React.SyntheticEvent) => {
+    if (event && anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
       return;
     }
     setOpen(false);
   };
-
-  const router = useRouter();
 
   return (
     <>
@@ -73,8 +71,8 @@ export default function User() {
         >
           <Box>{authUser.name ?? "Account"}</Box>
           <Avatar
-            alt="avatar"
-            src="/images/avatars/avatar-3.jpg"
+            alt={authUser.name ?? "avatar"}
+            src={authUser.image || "/images/avatars/avatar-3.jpg"}
             className={cn(
               "large transition-all group-hover:ms-0.5 group-hover:h-8 group-hover:w-8",
               open && "ms-0.5 h-8! w-8!",
@@ -298,8 +296,34 @@ export default function User() {
                         color="grey"
                         className="w-full"
                         onClick={() => {
-                          handleClose({ target: document.body } as Event);
-                          void logoutUser(router);
+                          handleClose();
+
+                          const token = window.localStorage.getItem("aquavista-auth-token");
+
+                          // Remove auth state directly from localStorage.
+                          window.localStorage.removeItem("aquavista-auth-token");
+                          window.localStorage.removeItem("aquavista-user");
+
+                          // Trigger useAuthGuard in this tab and other tabs.
+                          window.dispatchEvent(
+                            new StorageEvent("storage", {
+                              key: "aquavista-auth-token",
+                              newValue: null,
+                            }),
+                          );
+
+                          if (token) {
+                            fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
+                              method: "POST",
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                              },
+                              keepalive: true,
+                            }).catch(() => {
+                              // Ignore logout failures.
+                            });
+                          }
                         }}
                       >
                         {t("user-sign-out")}
