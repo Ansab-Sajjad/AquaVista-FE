@@ -238,9 +238,11 @@ export default function SettingsPublicInfo() {
               <Box className="relative">
                 <Avatar
                   alt={profile.name || "avatar"}
-                  src={avatarPreview || profile.profileImage || "/images/avatars/avatar-1.jpg"}
+                  src={avatarPreview || profile.profileImage || undefined}
                   className="h-20 w-20 rounded-4xl"
-                />
+                >
+                  {profile.name?.charAt(0) ?? "U"}
+                </Avatar>
                 <Button
                   component="label"
                   className="absolute right-0 bottom-0 rounded-full border border-white bg-background-paper p-1 shadow-sm"

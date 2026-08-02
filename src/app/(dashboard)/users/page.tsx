@@ -36,9 +36,9 @@ import {
   Visibility,
   VisibilityOff,
 } from "@mui/icons-material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, type GridSortModel, type GridPaginationModel } from "@mui/x-data-grid";
 
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 
 type Project = { id: string; name: string; municipality: string };
 type User = {
@@ -50,6 +50,8 @@ type User = {
   status: string;
   lastActive?: string;
   createdAt: string;
+  profileImage?: string | null;
+  image?: string | null;
   projects: Project[];
 };
 type ViewMode = "list" | "grid";
@@ -93,11 +95,24 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [page, setPage] = useState(0);
+  const [gridPaginationModel, setGridPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: ROWS_PER_PAGE,
+  });
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
+
+  const orderedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      if (a.role === "admin" && b.role !== "admin") return -1;
+      if (b.role === "admin" && a.role !== "admin") return 1;
+      return 0;
+    });
+  }, [users]);
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return users.filter((user) => {
+    return orderedUsers.filter((user) => {
       const searchableText = [
         user.name,
         user.email,
@@ -114,9 +129,19 @@ export default function UsersPage() {
 
       return matchesSearch && matchesRole && matchesStatus;
     });
-  }, [roleFilter, searchTerm, statusFilter, users]);
+  }, [roleFilter, searchTerm, statusFilter, orderedUsers]);
 
-  const sortedUsers = useMemo(() => [...filteredUsers], [filteredUsers]);
+  const sortedUsers = useMemo(() => {
+    if (!sortModel.length) return [...filteredUsers];
+
+    return [...filteredUsers].sort((a, b) => {
+      const { field, sort } = sortModel[0];
+      const valueA = String(a[field as keyof User] ?? "").toLowerCase();
+      const valueB = String(b[field as keyof User] ?? "").toLowerCase();
+      return sort === "desc" ? valueB.localeCompare(valueA) : valueA.localeCompare(valueB);
+    });
+  }, [filteredUsers, sortModel]);
+
   const paginatedUsers = useMemo(() => {
     const startIndex = page * ROWS_PER_PAGE;
     return sortedUsers.slice(startIndex, startIndex + ROWS_PER_PAGE);
@@ -127,9 +152,28 @@ export default function UsersPage() {
     setSearchTerm("");
     setRoleFilter("all");
     setStatusFilter("all");
+    setPage(0);
+    setGridPaginationModel({ page: 0, pageSize: ROWS_PER_PAGE });
+    setSortModel([]);
   };
 
   const columns: GridColDef<User>[] = [
+    {
+      field: "avatar",
+      headerName: "",
+      width: 80,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Avatar
+          src={normalizeAvatarUrl(params.row.profileImage || params.row.image || undefined)}
+          alt={params.row.name}
+          sx={{ width: 32, height: 32 }}
+        >
+          {params.row.name?.charAt(0) ?? "U"}
+        </Avatar>
+      ),
+    },
     {
       field: "name",
       headerName: "User",
@@ -262,10 +306,6 @@ export default function UsersPage() {
     void loadUsers();
   }, [loadUsers, router]);
 
-  useEffect(() => {
-    setPage(0);
-  }, [searchTerm, roleFilter, statusFilter]);
-
   if (!isAdminUser()) return null;
 
   return (
@@ -359,11 +399,20 @@ export default function UsersPage() {
                     <Card key={user.id} variant="outlined" className="h-full border border-divider bg-background-paper">
                       <CardContent className="flex h-full flex-col gap-4">
                         <Box className="flex items-start justify-between gap-2">
-                          <Box className="flex flex-col gap-1">
-                            <Typography className="font-semibold">{user.name}</Typography>
-                            <Typography variant="body2" className="text-text-secondary">
-                              {user.email}
-                            </Typography>
+                          <Box className="flex items-center gap-3">
+                            <Avatar
+                              alt={user.name}
+                              src={normalizeAvatarUrl(user.profileImage || user.image || undefined)}
+                              sx={{ width: 48, height: 48 }}
+                            >
+                              {user.name?.charAt(0) ?? "U"}
+                            </Avatar>
+                            <Box className="flex flex-col gap-1">
+                              <Typography className="font-semibold">{user.name}</Typography>
+                              <Typography variant="body2" className="text-text-secondary">
+                                {user.email}
+                              </Typography>
+                            </Box>
                           </Box>
                           <Chip
                             label={formatStatus(user.status)}
@@ -378,7 +427,7 @@ export default function UsersPage() {
                             size="small"
                             variant="outlined"
                           />
-                          <Chip label={user.company || "No company"} size="small" variant="outlined" />
+                          <Chip label={user.company || "-"} size="small" variant="outlined" />
                         </Box>
 
                         <Box className="flex flex-col gap-1">
@@ -439,12 +488,11 @@ export default function UsersPage() {
                 getRowId={(row) => row.id}
                 autoHeight
                 disableRowSelectionOnClick
+                paginationModel={gridPaginationModel}
+                onPaginationModelChange={setGridPaginationModel}
+                sortModel={sortModel}
+                onSortModelChange={(model) => setSortModel(model)}
                 pageSizeOptions={[10, 20, 50]}
-                initialState={{
-                  pagination: {
-                    paginationModel: { page: 0, pageSize: ROWS_PER_PAGE },
-                  },
-                }}
                 sx={{
                   border: 0,
                   "& .MuiDataGrid-columnHeaders": {

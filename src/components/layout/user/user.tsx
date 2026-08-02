@@ -72,12 +72,14 @@ export default function User() {
           <Box>{authUser.name ?? "Account"}</Box>
           <Avatar
             alt={authUser.name ?? "avatar"}
-            src={authUser.image || "/images/avatars/avatar-3.jpg"}
+            src={authUser.image || authUser.profileImage || undefined}
             className={cn(
               "large transition-all group-hover:ms-0.5 group-hover:h-8 group-hover:w-8",
               open && "ms-0.5 h-8! w-8!",
             )}
-          />
+          >
+            {authUser.name?.charAt(0) ?? "U"}
+          </Avatar>
         </Button>
         {/* Desktop button */}
 
@@ -93,10 +95,12 @@ export default function User() {
           onClick={handleToggle}
           startIcon={
             <Avatar
-              alt="avatar"
-              src="/images/avatars/avatar-3.jpg"
+              alt={authUser.name ?? "avatar"}
+              src={authUser.image || authUser.profileImage || undefined}
               className={cn("large transition-all group-hover:h-7 group-hover:w-7", open && "h-7! w-7!")}
-            />
+            >
+              {authUser.name?.charAt(0) ?? "U"}
+            </Avatar>
           }
         />
         {/* Mobile button */}
@@ -118,7 +122,13 @@ export default function User() {
                   <CardContent>
                     <Box className="max-w-64 sm:w-72 sm:max-w-none">
                       <Box className="mb-4 flex flex-col items-center">
-                        <Avatar alt="avatar" src="/images/avatars/avatar-3.jpg" className="large mb-2" />
+                        <Avatar
+                          alt={authUser.name ?? "avatar"}
+                          src={authUser.image || authUser.profileImage || undefined}
+                          className="large mb-2"
+                        >
+                          {authUser.name?.charAt(0) ?? "U"}
+                        </Avatar>
                         <Typography variant="subtitle1" component="p">
                           {authUser.name ?? "Account"}
                         </Typography>

@@ -16,12 +16,14 @@ import {
   CircularProgress,
   Divider,
   Grid,
+  IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { ArrowBack, Business, Email, Person, Work } from "@mui/icons-material";
+import { ArrowBack, Business, Email, Forum, Person, Work } from "@mui/icons-material";
 
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 
 type Project = { id: string; name: string; municipality: string };
 type UserDetail = {
@@ -33,19 +35,15 @@ type UserDetail = {
   status: string;
   lastActive?: string;
   createdAt: string;
+  profileImage?: string | null;
+  image?: string | null;
   projects: Project[];
 };
-
-function getAvatarUrl(id: string) {
-  const hash = Array.from(id).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const index = (hash % 16) + 1;
-  return `/images/avatars/avatar-${index}.jpg`;
-}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 function formatDate(value?: string) {
-  if (!value) return "Never";
+  if (!value) return "Never logged in";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleDateString();
 }
@@ -182,9 +180,11 @@ export default function UserDetailPage() {
                 </Box>
                 <Avatar
                   alt={user.name}
-                  src={getAvatarUrl(user.id)}
+                  src={user.profileImage ? normalizeAvatarUrl(user.profileImage) : undefined}
                   className="h-24 w-24 rounded-4xl"
-                />
+                >
+                  {user.name?.charAt(0) ?? "U"}
+                </Avatar>
                 <Box className="text-center">
                   <Typography variant="h4">{user.name}</Typography>
                   <Typography variant="body2" className="text-text-secondary">
@@ -208,7 +208,7 @@ export default function UserDetailPage() {
                     <Typography variant="body2">Company</Typography>
                   </Box>
                   <Box className="px-4 pb-4 pt-0">
-                    <Typography className="font-semibold">{user.company || "No company"}</Typography>
+                    <Typography className="font-semibold">{user.company || "-"}</Typography>
                   </Box>
                 </Box>
               </CardContent>
@@ -246,16 +246,35 @@ export default function UserDetailPage() {
                     {user.projects.length ? (
                       <Box className="grid gap-3 md:grid-cols-2">
                         {user.projects.map((project) => (
-                          <Link
+                          <Box
                             key={project.id}
-                            href={`/projects/${project.id}/dashboard`}
-                            className="rounded-3xl border border-divider p-4 text-sm font-medium text-primary no-underline transition hover:bg-primary/10"
+                            className="flex items-center justify-between rounded-3xl border border-divider p-4 transition hover:bg-primary/10"
                           >
-                            <Typography className="font-semibold">{project.name}</Typography>
-                            <Typography variant="body2" className="text-text-secondary">
-                              {project.municipality}
-                            </Typography>
-                          </Link>
+                            <Link
+                              href={`/projects/${project.id}/dashboard`}
+                              className="flex-1 text-sm font-medium text-primary no-underline"
+                            >
+                              <Typography className="font-semibold">{project.name}</Typography>
+                              <Typography variant="body2" className="text-text-secondary">
+                                {project.municipality}
+                              </Typography>
+                            </Link>
+                            {isAdminUser() && (
+                              <Tooltip title="View Ask AVA chat">
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    router.push(
+                                      `/projects/${project.id}/ask-ava?userId=${encodeURIComponent(user.id)}`,
+                                    )
+                                  }
+                                  sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
+                                >
+                                  <Forum fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
                         ))}
                       </Box>
                     ) : (

@@ -1,23 +1,12 @@
 const AUTH_TOKEN_KEY = "aquavista-auth-token";
 const AUTH_USER_KEY = "aquavista-user";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
-
-function getDefaultApiBaseUrl() {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  if (API_BASE_URL) {
-    return API_BASE_URL;
-  }
-  return window.location.origin;
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export function normalizeAvatarUrl(url?: string | null) {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   if (url.startsWith("/uploads")) {
-    const baseUrl = getDefaultApiBaseUrl();
-    return `${baseUrl}${url}`;
+    return `${API_BASE_URL}${url}`;
   }
   return url;
 }
@@ -42,8 +31,14 @@ export function getStoredAuthUser() {
 
   try {
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && "image" in parsed) {
-      return { ...parsed, image: normalizeAvatarUrl(String(parsed.image || "")) };
+    if (parsed && typeof parsed === "object") {
+      const image = String((parsed as any).image || (parsed as any).profileImage || "");
+      const normalized = normalizeAvatarUrl(image);
+      return {
+        ...parsed,
+        image: normalized,
+        profileImage: normalized,
+      };
     }
     return parsed;
   } catch {
@@ -83,9 +78,11 @@ export function setAuthCookies(token: string, user: Record<string, unknown> | nu
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
 
   if (user) {
+    const imageValue = String((user as any).image || (user as any).profileImage || "");
     const normalizedUser = {
       ...user,
-      image: normalizeAvatarUrl(String((user as any).image || "")),
+      image: normalizeAvatarUrl(imageValue),
+      profileImage: normalizeAvatarUrl(imageValue),
     };
     window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(normalizedUser));
     window.dispatchEvent(new CustomEvent("auth-user-change", { detail: normalizedUser }));

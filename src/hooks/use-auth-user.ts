@@ -11,6 +11,7 @@ interface AuthUser {
   role?: string;
   status?: string;
   image?: string;
+  profileImage?: string;
 }
 
 export function useAuthUser(): AuthUser {

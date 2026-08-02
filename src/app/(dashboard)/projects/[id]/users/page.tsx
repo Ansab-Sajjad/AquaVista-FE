@@ -15,9 +15,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   FormLabel,
+  IconButton,
   Input,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -28,6 +34,7 @@ import {
 } from "@mui/material";
 
 import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { Chat, Delete, MoreVert, Visibility } from "@mui/icons-material";
 
 type User = {
   id: string;
@@ -51,6 +58,7 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [newUser, setNewUser] = useState({ email: "" });
+  const [menuAnchor, setMenuAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null);
 
   // Redirect non-admins away — tab is hidden but guard direct URL access too
   useEffect(() => {
@@ -198,13 +206,13 @@ export default function UsersPage() {
                     <TableCell>Email</TableCell>
                     <TableCell>Role</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+                    <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center" className="text-text-secondary py-8">
+                      <TableCell colSpan={5} align="left" className="text-text-secondary py-8">
                         No users have been added to this project yet.
                       </TableCell>
                     </TableRow>
@@ -228,10 +236,14 @@ export default function UsersPage() {
                             color={user.status === "Active" ? "success" : "warning"}
                           />
                         </TableCell>
-                        <TableCell align="right">
-                          <Button size="small" color="error" onClick={() => void handleRemove(user.id)}>
-                            Remove
-                          </Button>
+                        <TableCell>
+                          <IconButton
+                            size="small"
+                            aria-label={`Actions for ${user.name}`}
+                            onClick={(e) => setMenuAnchor({ el: e.currentTarget, userId: user.id })}
+                          >
+                            <MoreVert fontSize="small" />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))
@@ -242,6 +254,43 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Menu
+        anchorEl={menuAnchor?.el}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        slotProps={{ paper: { elevation: 2, sx: { minWidth: 180, borderRadius: 2 } } }}
+      >
+        <MenuItem
+          onClick={() => {
+            router.push(`/users/${menuAnchor!.userId}`);
+            setMenuAnchor(null);
+          }}
+        >
+          <ListItemIcon><Visibility fontSize="small" /></ListItemIcon>
+          <ListItemText>View User</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            router.push(`/projects/${projectId}/ask-ava?userId=${encodeURIComponent(menuAnchor!.userId)}`);
+            setMenuAnchor(null);
+          }}
+        >
+          <ListItemIcon><Chat fontSize="small" /></ListItemIcon>
+          <ListItemText>View Chat</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => {
+            void handleRemove(menuAnchor!.userId);
+            setMenuAnchor(null);
+          }}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Remove</ListItemText>
+        </MenuItem>
+      </Menu>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Invite User</DialogTitle>

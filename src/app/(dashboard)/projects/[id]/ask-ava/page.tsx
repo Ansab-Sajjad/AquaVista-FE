@@ -1,15 +1,14 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { PushPin } from "@mui/icons-material";
+import { ArrowBack, PushPin } from "@mui/icons-material";
 import {
   Box,
   Button,
   Card,
   CardContent,
-  Chip,
   FormControl,
   IconButton,
   InputLabel,
@@ -21,7 +20,7 @@ import {
 } from "@mui/material";
 
 import { AquaVista } from "@/lib/AquaVista";
-import { getStoredAuthToken } from "@/lib/auth";
+import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type Message = {
@@ -49,7 +48,10 @@ const WELCOME_MESSAGE: Message = {
 
 export default function AskAvaPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = (params?.id as string) || "";
+  const requestedUserId = searchParams.get("userId");
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [chatTitle, setChatTitle] = useState("New conversation");
@@ -62,6 +64,7 @@ export default function AskAvaPage() {
 
   const token = getStoredAuthToken();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isAdminViewingUser = Boolean(requestedUserId) && isAdminUser();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -79,7 +82,7 @@ export default function AskAvaPage() {
 
     try {
       const chatRes = await fetch(
-        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}`,
+        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -134,7 +137,7 @@ export default function AskAvaPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, token]);
+  }, [projectId, requestedUserId, token]);
 
   useEffect(() => {
     async function fetchChat() {
@@ -147,7 +150,7 @@ export default function AskAvaPage() {
       setError(null);
 
       try {
-        const chatsRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
+        const chatsRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -162,6 +165,14 @@ export default function AskAvaPage() {
         let selectedChat = chats[0];
 
         if (!selectedChat) {
+          if (isAdminViewingUser) {
+            setChatId(null);
+            setChatTitle("No conversation found");
+            setMessages([WELCOME_MESSAGE]);
+            setError("No Ask AVA conversations were found for this user in this project yet.");
+            return;
+          }
+
           const createRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
             method: "POST",
             headers: {
@@ -192,9 +203,14 @@ export default function AskAvaPage() {
     }
 
     fetchChat();
-  }, [projectId, token, loadChat]);
+  }, [projectId, isAdminViewingUser, requestedUserId, token, loadChat]);
 
   const sendMessage = async () => {
+    if (isAdminViewingUser) {
+      setError("This view is read-only. You can review the selected user's Ask AVA history here.");
+      return;
+    }
+
     if (!input.trim() || isThinking || !projectId || !token || !chatId) return;
 
     const userMessage: Message = { id: String(Date.now()), role: "user", content: input };
@@ -312,18 +328,47 @@ export default function AskAvaPage() {
             {chatTitle}
           </Typography>
         </Box>
-        <Chip label="Beta" size="small" color="warning" />
+        {isAdminViewingUser && (
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => router.push(`/users/${requestedUserId}`)}
+            variant="outlined"
+            className="w-fit"
+            sx={{
+              borderColor: "divider",
+              color: "text.primary",
+              px: 2,
+              py: 0.8,
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": {
+                borderColor: "primary.main",
+                color: "primary.main",
+                backgroundColor: "action.hover",
+              },
+            }}
+          >
+            Back
+          </Button>
+        )}
       </Box>
 
-      <Card className="bg-background-paper shadow-darker-xs flex h-[calc(100vh-22rem)] flex-col rounded-3xl">
+      <Card className={cn("bg-background-paper shadow-darker-xs flex flex-col rounded-3xl", isAdminViewingUser ? "h-[calc(100vh-12rem)]" : "h-[calc(100vh-22rem)]")}>
         <CardContent className="flex h-full flex-col gap-4 p-5">
-          <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
-            <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
-            {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for
-            clarification when the data is incomplete.
-          </Box>
+          {isAdminViewingUser ? (
+            <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
+              Viewing Ask AVA conversations for this project user. This panel is read-only.
+            </Box>
+          ) : (
+            <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
+              <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
+              {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for
+              clarification when the data is incomplete.
+            </Box>
+          )}
 
-          <Box className="mb-4 flex flex-wrap gap-4">
+          <Box className="mb-4 flex flex-wrap items-center gap-4">
             <Box className="w-full max-w-sm">
               <FormControl fullWidth>
                 <InputLabel id="ava-provider-select-label">AI Agent / Model</InputLabel>
@@ -422,12 +467,12 @@ export default function AskAvaPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask AVA about revenue, expenses, customer classes, rates..."
               slotProps={{ input: { className: "rounded-2xl" } }}
-              disabled={isLoading || !token || !chatId}
+              disabled={isLoading || !token || !chatId || isAdminViewingUser}
             />
             <Button
               variant="contained"
               onClick={sendMessage}
-              disabled={!input.trim() || isThinking || isLoading || !token || !chatId}
+              disabled={!input.trim() || isThinking || isLoading || !token || !chatId || isAdminViewingUser}
               className="h-14 px-6"
             >
               Send

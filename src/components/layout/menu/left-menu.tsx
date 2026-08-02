@@ -1,5 +1,5 @@
 "use client";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 
@@ -21,6 +21,8 @@ export default function LeftMenu() {
   const t = useTranslations("dashboard");
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isAdminViewingUserChat = Boolean(searchParams.get("userId")) && isAdminUser() && pathname.includes("/ask-ava");
 
   const {
     leftMenuType,
@@ -46,10 +48,12 @@ export default function LeftMenu() {
   const [openedAccordions, setOpenedAccordions] = useState<OpenedAccordion[]>([]);
   const visibleMenuItems = useMemo<MenuItem[]>(
     () =>
-      leftMenuItems.map((item) => ({
-        ...item,
-        children: item.children?.filter((child) => !child.adminOnly || isAdminUser()),
-      })),
+      leftMenuItems
+        .filter((item) => !item.adminOnly || isAdminUser())
+        .map((item) => ({
+          ...item,
+          children: item.children?.filter((child) => !child.adminOnly || isAdminUser()),
+        })),
     [],
   );
 
@@ -82,11 +86,14 @@ export default function LeftMenu() {
   }, [activeItem?.id, selectedPrimary.current?.id, setLeftShowBackdrop, leftShowBackdrop]);
 
   useEffect(() => {
-    let selectedMenu = visibleMenuItems.find(
-      (item) =>
-        (item.href && isPathMatch(pathname, item.href)) ||
-        item.children?.some((child) => child.href && isPathMatch(pathname, child.href)),
-    );
+    let selectedMenu = isAdminViewingUserChat ? visibleMenuItems.find((item) => item.id === "users") : undefined;
+    if (!selectedMenu) {
+      selectedMenu = visibleMenuItems.find(
+        (item) =>
+          (item.href && isPathMatch(pathname, item.href)) ||
+          item.children?.some((child) => child.href && isPathMatch(pathname, child.href)),
+      );
+    }
     if (!selectedMenu && leftMenuBottomItems) {
       selectedMenu = leftMenuBottomItems.find((item) => item.href && isPathMatch(pathname, item.href));
     }
@@ -97,7 +104,7 @@ export default function LeftMenu() {
     }
     resetLeftMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, visibleMenuItems]);
+  }, [pathname, visibleMenuItems, isAdminViewingUserChat]);
 
   useEffect(() => {
     const resetCallback = () => {
@@ -261,6 +268,7 @@ export default function LeftMenu() {
                         indent={0}
                         openedAccordions={openedAccordions}
                         setOpenedAccordions={setOpenedAccordions}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                         onSelect={(item) => {
                           if (temporaryShowPrimaryMenu) {
                             setTemporaryShowPrimaryMenu(false);
@@ -277,6 +285,7 @@ export default function LeftMenu() {
                         onSelect={(item) => handleSelectPrimaryItem(item)}
                         isActive={activeItem?.id === item.id}
                         menuType={leftMenuType}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                       />
                     ),
                   )}
@@ -293,6 +302,7 @@ export default function LeftMenu() {
                         indent={0}
                         openedAccordions={openedAccordions}
                         setOpenedAccordions={setOpenedAccordions}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                         onSelect={(item) => handleSelectPrimaryItem(item)}
                       />
                     ) : (
@@ -303,6 +313,7 @@ export default function LeftMenu() {
                         onSelect={(item) => handleSelectPrimaryItem(item)}
                         isActive={activeItem?.id === item.id}
                         menuType={leftMenuType}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                       />
                     ),
                   )}
