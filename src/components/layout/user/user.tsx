@@ -3,7 +3,6 @@
 import UserLanguageSwitch from "./user-language-switch";
 import UserModeSwitch from "./user-mode-switch";
 import UserThemeSwitch from "./user-theme-switch";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useTranslations } from "use-intl";
@@ -28,6 +27,7 @@ import MenuItem from "@mui/material/MenuItem";
 import MenuList from "@mui/material/MenuList";
 import Popper from "@mui/material/Popper";
 
+import { useAuthUser } from "@/hooks/use-auth-user";
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
@@ -41,20 +41,20 @@ import { cn } from "@/lib/utils";
 export default function User() {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef<HTMLButtonElement>(null);
+  const router = useRouter();
   const t = useTranslations("dashboard");
+  const authUser = useAuthUser();
 
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
   };
 
-  const handleClose = (event: Event | React.SyntheticEvent) => {
-    if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
+  const handleClose = (event?: Event | React.SyntheticEvent) => {
+    if (event && anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
       return;
     }
     setOpen(false);
   };
-
-  const router = useRouter();
 
   return (
     <>
@@ -69,15 +69,17 @@ export default function User() {
           )}
           onClick={handleToggle}
         >
-          <Box>Laura Ellis</Box>
+          <Box>{authUser.name ?? "Account"}</Box>
           <Avatar
-            alt="avatar"
-            src="/images/avatars/avatar-3.jpg"
+            alt={authUser.name ?? "avatar"}
+            src={authUser.image || authUser.profileImage || undefined}
             className={cn(
               "large transition-all group-hover:ms-0.5 group-hover:h-8 group-hover:w-8",
               open && "ms-0.5 h-8! w-8!",
             )}
-          />
+          >
+            {authUser.name?.charAt(0) ?? "U"}
+          </Avatar>
         </Button>
         {/* Desktop button */}
 
@@ -93,10 +95,12 @@ export default function User() {
           onClick={handleToggle}
           startIcon={
             <Avatar
-              alt="avatar"
-              src="/images/avatars/avatar-3.jpg"
+              alt={authUser.name ?? "avatar"}
+              src={authUser.image || authUser.profileImage || undefined}
               className={cn("large transition-all group-hover:h-7 group-hover:w-7", open && "h-7! w-7!")}
-            />
+            >
+              {authUser.name?.charAt(0) ?? "U"}
+            </Avatar>
           }
         />
         {/* Mobile button */}
@@ -118,12 +122,18 @@ export default function User() {
                   <CardContent>
                     <Box className="max-w-64 sm:w-72 sm:max-w-none">
                       <Box className="mb-4 flex flex-col items-center">
-                        <Avatar alt="avatar" src="/images/avatars/avatar-3.jpg" className="large mb-2" />
+                        <Avatar
+                          alt={authUser.name ?? "avatar"}
+                          src={authUser.image || authUser.profileImage || undefined}
+                          className="large mb-2"
+                        >
+                          {authUser.name?.charAt(0) ?? "U"}
+                        </Avatar>
                         <Typography variant="subtitle1" component="p">
-                          Laura Ellis
+                          {authUser.name ?? "Account"}
                         </Typography>
                         <Typography variant="body2" component="p" className="text-text-secondary -mt-2">
-                          laura.ellis@gogo.dev
+                          {authUser.email ?? ""}
                         </Typography>
                       </Box>
 
@@ -156,14 +166,14 @@ export default function User() {
                             <MenuList className="mb-4 p-0">
                               <MenuItem onClick={handleClose}>
                                 <ListItemIcon className="me-2">
-                                  <Avatar className="tiny" alt="Laura Ellis" src="/images/avatars/avatar-3.jpg" />
+                                  <Avatar className="tiny" alt="avatar" src="/images/avatars/avatar-3.jpg" />
                                 </ListItemIcon>
                                 <Box>
                                   <Typography variant="body1" component="div">
-                                    Laura Ellis
+                                    {authUser.name ?? "Account"}
                                   </Typography>
                                   <Typography variant="body2" component="div" className="text-text-secondary -mt-1">
-                                    laura@gogo.dev
+                                    {authUser.email ?? ""}
                                   </Typography>
                                 </Box>
                               </MenuItem>
@@ -291,12 +301,40 @@ export default function User() {
                       </MenuList>
                       <Box className="my-8"></Box>
                       <Button
-                        component={Link}
-                        href="/auth/sign-in"
                         variant="outlined"
                         size="tiny"
                         color="grey"
                         className="w-full"
+                        onClick={() => {
+                          handleClose();
+
+                          const token = window.localStorage.getItem("aquavista-auth-token");
+
+                          // Remove auth state directly from localStorage.
+                          window.localStorage.removeItem("aquavista-auth-token");
+                          window.localStorage.removeItem("aquavista-user");
+
+                          // Trigger useAuthGuard in this tab and other tabs.
+                          window.dispatchEvent(
+                            new StorageEvent("storage", {
+                              key: "aquavista-auth-token",
+                              newValue: null,
+                            }),
+                          );
+
+                          if (token) {
+                            fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
+                              method: "POST",
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                              },
+                              keepalive: true,
+                            }).catch(() => {
+                              // Ignore logout failures.
+                            });
+                          }
+                        }}
                       >
                         {t("user-sign-out")}
                       </Button>

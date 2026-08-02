@@ -9,6 +9,14 @@ export const leftMenuItems: MenuItem[] = [
     color: "text-primary",
     href: "/projects",
   },
+  {
+    id: "users",
+    icon: "NiUsers",
+    label: "menu-users",
+    description: "Manage AquaVista users and project access",
+    href: "/users",
+    adminOnly: true,
+  },
 ];
 
 export const leftMenuBottomItems: MenuItem[] = [

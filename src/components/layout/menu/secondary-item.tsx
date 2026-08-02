@@ -18,18 +18,28 @@ type Props = {
   setOpenedAccordions: Dispatch<React.SetStateAction<OpenedAccordion[]>>;
   className?: string;
   onSelect?: (item: MenuItem) => void;
+  selectedOverrideId?: string;
 };
 
-export function SecondaryItem({ item, indent = 0, openedAccordions, setOpenedAccordions, className, onSelect }: Props) {
+export function SecondaryItem({
+  item,
+  indent = 0,
+  openedAccordions,
+  setOpenedAccordions,
+  className,
+  onSelect,
+  selectedOverrideId,
+}: Props) {
   const t = useTranslations("dashboard");
   const pathname = usePathname();
 
   const isActive = useMemo(() => {
+    if (selectedOverrideId) return item.id === selectedOverrideId;
     if (item.href && isPathMatch(pathname, item.href)) return true;
     if (item.children) return item.children.some((child: MenuItem) => child.href && isPathMatch(pathname, child.href));
     return false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, selectedOverrideId]);
 
   const handleOnChange = useCallback(
     (expanded: boolean) => {

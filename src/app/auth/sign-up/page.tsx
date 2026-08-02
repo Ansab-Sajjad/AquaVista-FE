@@ -1,8 +1,7 @@
 "use client";
 import { useFormik } from "formik";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as yup from "yup";
 
 import {
@@ -21,29 +20,17 @@ import {
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
-import { DEFAULTS } from "@/config";
+import { THEME_OPTIONS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
-import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
-import { cn } from "@/lib/utils";
+import { useThemeContext } from "@/theme/theme-provider";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const validationSchema = yup.object({
   name: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
   email: yup.string().required("The field is required").email("Enter a valid email"),
   company: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
-  password: yup
-    .string()
-    .required("The field is required")
-    .min(8, "Should be at least 8 characters")
-    .test("uppercase", "Should be an uppercase and a lowercase letter", (value) => {
-      const hasUpperCase = /[A-Z]/.test(value);
-      const hasLowerCase = /[a-z]/.test(value);
-      return hasUpperCase && hasLowerCase;
-    })
-    .test("symbol", "Should be a special character", (value) => {
-      const hasSymbol = /[^A-Za-z 0-9]/g.test(value);
-      return hasSymbol;
-    }),
 });
 
 type InputErrorProps = {
@@ -66,39 +53,61 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 };
 
 export default function Page() {
-  const router = useRouter();
+  const { setTheme } = useThemeContext();
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [registered, setRegistered] = useState(false);
+
+  useEffect(() => {
+    setTheme(THEME_OPTIONS.ORANGE);
+  }, [setTheme]);
 
   const formik = useFormik({
     initialValues: {
       name: "",
       email: "",
       company: "",
-      password: "",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
-      router.push(DEFAULTS.appRoot);
+    onSubmit: async (values) => {
+      setSubmitted(true);
+      setAuthError(null);
+      setSuccessMessage(null);
+      setIsSubmitting(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: values.name,
+            email: values.email,
+            company: values.company,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Unable to create your account. Please try again.");
+        }
+
+        setSuccessMessage(data?.message || "Please check your email to activate your account.");
+        formik.resetForm();
+        setRegistered(true);
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Unable to create your account. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     validateOnBlur: false,
     validateOnMount: false,
   });
-
-  const isPasswordLengthValid = () => {
-    return formik.values.password.length >= 8;
-  };
-
-  const isPasswordCaseValid = () => {
-    const hasUpperCase = /[A-Z]/.test(formik.values.password);
-    const hasLowerCase = /[a-z]/.test(formik.values.password);
-    return hasUpperCase && hasLowerCase;
-  };
-
-  const isPasswordSymbolValid = () => {
-    const hasSymbol = /[^A-Za-z 0-9]/g.test(formik.values.password);
-    return hasSymbol;
-  };
 
   const googleSVG = () => {
     return (
@@ -155,202 +164,180 @@ export default function Page() {
             <Box className="flex flex-col gap-10">
               <Box className="flex flex-col">
                 <Typography variant="h1" component="h1" className="mb-2">
-                  Sign up
+                  {registered ? "Verify your email" : "Sign up"}
                 </Typography>
                 <Typography variant="body1" className="text-text-primary">
-                  Create your AquaVista account to manage municipal rate-study projects and collaborate with your team.
+                  {registered
+                    ? "We have sent a verification link to your email. Please check your inbox to complete account activation."
+                    : "Create your AquaVista account to manage municipal rate-study projects and collaborate with your team."}
                 </Typography>
               </Box>
 
-              <Box className="flex flex-col gap-5">
-                <Box className="flex flex-col gap-2 md:flex-row">
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
-                    <Box className="me-2">{googleSVG()}</Box>Sign in with Google
-                  </Button>
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
-                    <Box className="me-2">{githubSVG()}</Box>Sign up with GitHub
-                  </Button>
-                </Box>
-
-                <Divider className="text-text-secondary my-0 text-sm">OR</Divider>
-
-                <Box
-                  component={"form"}
-                  onSubmit={(event) => {
-                    setSubmitted(true);
-                    formik.handleSubmit(event);
-                  }}
-                  className="flex flex-col"
-                >
-                  <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" className="flex flex-row">
-                      Name{" "}
-                      {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
-                    </FormLabel>
-                    <Input
-                      id="name"
-                      name="name"
-                      placeholder=""
-                      value={formik.values.name}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                    />
-                  </FormControl>
-
-                  <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" className="flex flex-row">
-                      Email{" "}
-                      {formik.touched.email && formik.errors.email && <InputErrorTooltip title={formik.errors.email} />}
-                    </FormLabel>
-                    <Input
-                      id="email"
-                      name="email"
-                      placeholder=""
-                      value={formik.values.email}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                    />
-                  </FormControl>
-
-                  <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" className="flex flex-row">
-                      Municipality / Organization{" "}
-                      {formik.touched.company && formik.errors.company && (
-                        <InputErrorTooltip title={formik.errors.company} />
-                      )}
-                    </FormLabel>
-                    <Input
-                      id="company"
-                      name="company"
-                      placeholder=""
-                      value={formik.values.company}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                    />
-                  </FormControl>
-
-                  <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" className="flex flex-row">
-                      Password{" "}
-                      {formik.touched.password && formik.errors.password && (
-                        <InputErrorTooltip title={formik.errors.password} />
-                      )}
-                    </FormLabel>
-                    <Input
-                      id="password"
-                      name="password"
-                      placeholder=""
-                      autoComplete="off"
-                      value={formik.values.password}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                    />
-                    <Typography variant="body2" className="text-text-secondary mt-2 inline-block align-middle">
-                      <span className="inline">Must be</span>
-                      <span
-                        className={cn(
-                          "mx-1 inline-block h-4 w-4 rounded-md align-text-bottom",
-                          isPasswordLengthValid() ? "bg-success text-text-contrast" : "bg-grey-100 text-text-secondary",
-                        )}
-                      >
-                        {isPasswordLengthValid() ? (
-                          <NiCheck size={"tiny"}></NiCheck>
-                        ) : (
-                          <NiCross size={"tiny"}></NiCross>
-                        )}
-                      </span>
-                      <span className={cn("inline font-semibold", isPasswordLengthValid() && "text-success")}>
-                        at least 8 characters long,{" "}
-                      </span>
-                      <span className="inline">must contain</span>
-                      <span
-                        className={cn(
-                          "mx-1 inline-block h-4 w-4 rounded-md align-text-bottom",
-                          isPasswordCaseValid() ? "bg-success text-text-contrast" : "bg-grey-100 text-text-secondary",
-                        )}
-                      >
-                        {isPasswordCaseValid() ? <NiCheck size={"tiny"}></NiCheck> : <NiCross size={"tiny"}></NiCross>}
-                      </span>
-                      <span className={cn("inline font-semibold", isPasswordCaseValid() && "text-success")}>
-                        lowercase and uppercase letters,{" "}
-                      </span>
-                      <span className="inline">must have at least</span>
-                      <span
-                        className={cn(
-                          "mx-1 inline-block h-4 w-4 rounded-md align-text-bottom",
-                          isPasswordSymbolValid() ? "bg-success text-text-contrast" : "bg-grey-100 text-text-secondary",
-                        )}
-                      >
-                        {isPasswordSymbolValid() ? (
-                          <NiCheck size={"tiny"}></NiCheck>
-                        ) : (
-                          <NiCross size={"tiny"}></NiCross>
-                        )}
-                      </span>
-                      <span className={cn("inline font-semibold", isPasswordSymbolValid() && "text-success")}>
-                        one special character.
-                      </span>
+              {registered ? (
+                <Box className="flex flex-col gap-5">
+                  <Alert severity="success" icon={<NiCheck />} className="neutral bg-background-paper/60! mb-4">
+                    <AlertTitle variant="subtitle2">Account created</AlertTitle>
+                    <Typography variant="body2" className="text-text-primary">
+                      {successMessage}
                     </Typography>
-                  </FormControl>
-                  {submitted && !formik.isValid && (
-                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                      <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
-                      {Object.entries(formik.errors).map(([key, value]) => {
-                        return (
-                          <Box className="flex flex-row gap-0.5" key={crypto.randomUUID()}>
-                            <Typography variant="body2" className="text-error">
-                              {capitalize(key)}:
-                            </Typography>
-                            <Typography variant="body2" className="text-text-primary">
-                              {value}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
-                    </Alert>
-                  )}
-                  <Box className="flex flex-col gap-2">
-                    <Link
-                      href="/auth/password-reset"
-                      className="link-text-secondary link-underline-hover text-center text-sm font-semibold"
-                    >
-                      Reset Password
-                    </Link>
-                    <Button type="submit" variant="contained" className="mb-4">
-                      Continue
+                  </Alert>
+                  <Link
+                    href="/auth/sign-in"
+                    className="link-primary link-underline-hover text-center text-sm font-semibold"
+                  >
+                    Back to sign in
+                  </Link>
+                </Box>
+              ) : (
+                <Box className="flex flex-col gap-5">
+                  <Box className="flex flex-col gap-2 md:flex-row">
+                    <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
+                      <Box className="me-2">{googleSVG()}</Box>Sign in with Google
+                    </Button>
+                    <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
+                      <Box className="me-2">{githubSVG()}</Box>Sign up with GitHub
                     </Button>
                   </Box>
 
-                  <Typography variant="body2" className="text-text-secondary">
-                    By clicking Continue, Sign in with Google, or Sign in with GitHub, you agree to the{" "}
-                    <Link
-                      target="_blank"
-                      href="/auth/terms-and-conditions"
-                      className="link-primary link-underline-hover"
-                    >
-                      Terms and Conditions
-                    </Link>{" "}
-                    and{" "}
-                    <Link target="_blank" href="/auth/privacy-policy" className="link-primary link-underline-hover">
-                      Privacy Policy
-                    </Link>
-                    .
-                  </Typography>
+                  <Divider className="text-text-secondary my-0 text-sm">OR</Divider>
+
+                  <Box
+                    component={"form"}
+                    onSubmit={(event) => {
+                      setSubmitted(true);
+                      setAuthError(null);
+                      setSuccessMessage(null);
+                      formik.handleSubmit(event);
+                    }}
+                    className="flex flex-col"
+                  >
+                    <FormControl className="outlined" variant="standard" size="small">
+                      <FormLabel component="label" className="flex flex-row">
+                        Name{" "}
+                        {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
+                      </FormLabel>
+                      <Input
+                        id="name"
+                        name="name"
+                        placeholder=""
+                        value={formik.values.name}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                      />
+                    </FormControl>
+
+                    <FormControl className="outlined" variant="standard" size="small">
+                      <FormLabel component="label" className="flex flex-row">
+                        Email{" "}
+                        {formik.touched.email && formik.errors.email && (
+                          <InputErrorTooltip title={formik.errors.email} />
+                        )}
+                      </FormLabel>
+                      <Input
+                        id="email"
+                        name="email"
+                        placeholder=""
+                        value={formik.values.email}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                      />
+                    </FormControl>
+
+                    <FormControl className="outlined" variant="standard" size="small">
+                      <FormLabel component="label" className="flex flex-row">
+                        Municipality / Organization{" "}
+                        {formik.touched.company && formik.errors.company && (
+                          <InputErrorTooltip title={formik.errors.company} />
+                        )}
+                      </FormLabel>
+                      <Input
+                        id="company"
+                        name="company"
+                        placeholder=""
+                        value={formik.values.company}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                      />
+                    </FormControl>
+
+                    {submitted && authError && (
+                      <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                        <AlertTitle variant="subtitle2">Sign-up failed</AlertTitle>
+                        <Typography variant="body2" className="text-text-primary">
+                          {authError}
+                        </Typography>
+                      </Alert>
+                    )}
+
+                    {successMessage && (
+                      <Alert severity="success" icon={<NiCheck />} className="neutral bg-background-paper/60! mb-4">
+                        <AlertTitle variant="subtitle2">Account created</AlertTitle>
+                        <Typography variant="body2" className="text-text-primary">
+                          {successMessage}
+                        </Typography>
+                      </Alert>
+                    )}
+
+                    {submitted && !formik.isValid && (
+                      <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                        <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
+                        {Object.entries(formik.errors).map(([key, value]) => {
+                          return (
+                            <Box className="flex flex-row gap-0.5" key={crypto.randomUUID()}>
+                              <Typography variant="body2" className="text-error">
+                                {capitalize(key)}:
+                              </Typography>
+                              <Typography variant="body2" className="text-text-primary">
+                                {value}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                      </Alert>
+                    )}
+                    <Box className="flex flex-col gap-2">
+                      <Link
+                        href="/auth/password-reset"
+                        className="link-text-secondary link-underline-hover text-center text-sm font-semibold"
+                      >
+                        Reset Password
+                      </Link>
+                      <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
+                        {isSubmitting ? "Creating account..." : "Continue"}
+                      </Button>
+                    </Box>
+
+                    <Typography variant="body2" className="text-text-secondary">
+                      By clicking Continue, Sign in with Google, or Sign in with GitHub, you agree to the{" "}
+                      <Link
+                        target="_blank"
+                        href="/auth/terms-and-conditions"
+                        className="link-primary link-underline-hover"
+                      >
+                        Terms and Conditions
+                      </Link>{" "}
+                      and{" "}
+                      <Link target="_blank" href="/auth/privacy-policy" className="link-primary link-underline-hover">
+                        Privacy Policy
+                      </Link>
+                      .
+                    </Typography>
+                  </Box>
+                  <Divider className="text-text-secondary my-0 text-sm"></Divider>
+                  <Box className="flex flex-col">
+                    <Typography variant="h6" component="h6">
+                      Sign in
+                    </Typography>
+                    <Typography variant="body1" className="text-text-secondary">
+                      If you already have an account, please{" "}
+                      <Link href="/auth/sign-in" className="link-primary link-underline-hover">
+                        sign in
+                      </Link>
+                      .
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
-              <Divider className="text-text-secondary my-0 text-sm"></Divider>
-              <Box className="flex flex-col">
-                <Typography variant="h6" component="h6">
-                  Sign in
-                </Typography>
-                <Typography variant="body1" className="text-text-secondary">
-                  If you already have an account, please{" "}
-                  <Link href="/auth/sign-in" className="link-primary link-underline-hover">
-                    sign in
-                  </Link>
-                  .
-                </Typography>
-              </Box>
+              )}
             </Box>
           </Box>
         </Box>

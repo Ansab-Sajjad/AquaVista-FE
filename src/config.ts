@@ -5,7 +5,7 @@ import { ModeVariant, ThemeVariant } from "@/constants";
 export const DEFAULTS = {
   appRoot: "/projects",
   locale: "en",
-  themeColor: "theme-green" as ThemeVariant,
+  themeColor: "theme-orange" as ThemeVariant,
   themeMode: "system" as ModeVariant,
   contentType: ContentType.Boxed,
   leftMenuType: MenuType.Comfort,

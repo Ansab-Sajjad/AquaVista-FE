@@ -2,7 +2,7 @@
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as yup from "yup";
 
 import {
@@ -13,28 +13,40 @@ import {
   capitalize,
   Divider,
   FormControl,
+  FormControlLabel,
   FormLabel,
   IconButton,
   Input,
   InputAdornment,
   Paper,
+  Radio,
+  RadioGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { THEME_OPTIONS } from "@/constants";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import { setAuthCookies } from "@/lib/auth";
+import { useThemeContext } from "@/theme/theme-provider";
 
 const validationSchema = yup.object({
   email: yup.string().required("The field is required").email("Enter a valid email"),
   password: yup.string().required("The field is required"),
 });
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 const MOCK_CREDENTIALS = {
   email: "admin@Aquavista.dev",
+  password: "password",
+};
+const MOCK_USER_CREDENTIALS = {
+  email: "user@Aquavista.dev",
   password: "password",
 };
 
@@ -59,23 +71,76 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 
 export default function Page() {
   const router = useRouter();
+  const { setTheme } = useThemeContext();
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTheme(THEME_OPTIONS.ORANGE);
+  }, [setTheme]);
 
   const formik = useFormik({
     initialValues: {
       email: MOCK_CREDENTIALS.email,
       password: MOCK_CREDENTIALS.password,
+      admin: "yes",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
-      router.push(DEFAULTS.appRoot);
+    onSubmit: async (values) => {
+      setSubmitted(true);
+      setAuthError(null);
+      setIsSubmitting(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: values.email,
+            password: values.password,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Unable to sign in. Please try again.");
+        }
+
+        if (!data?.token) {
+          throw new Error("Authentication token was not returned by the server.");
+        }
+
+        setAuthCookies(data.token, data.user || {});
+
+        const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
+        setTheme(roleTheme);
+
+        router.push(DEFAULTS.appRoot);
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Unable to sign in. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     validateOnBlur: false,
     validateOnMount: false,
   });
 
   const [showPassword, setShowPassword] = React.useState(false);
+
+  const handleAdminSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = event.target.value;
+    const isAdmin = newValue === "yes";
+    const credentials = isAdmin ? MOCK_CREDENTIALS : MOCK_USER_CREDENTIALS;
+
+    formik.setFieldValue("admin", newValue);
+    formik.setFieldValue("email", credentials.email);
+    formik.setFieldValue("password", credentials.password);
+  };
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -165,10 +230,31 @@ export default function Page() {
                   component={"form"}
                   onSubmit={(event) => {
                     setSubmitted(true);
+                    setAuthError(null);
                     formik.handleSubmit(event);
                   }}
                   className="flex flex-col"
                 >
+                  <FormControl className="outlined" variant="standard" size="small">
+                    <Box className="flex flex-row items-center gap-4">
+                      <FormLabel component="legend" className="mb-4">
+                        Are you admin?
+                      </FormLabel>
+                      <RadioGroup
+                        row
+                        className="gap-4"
+                        name="admin"
+                        value={formik.values.admin}
+                        onChange={handleAdminSelection}
+                        onBlur={formik.handleBlur}
+                        aria-label="admin"
+                      >
+                        <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                        <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                      </RadioGroup>
+                    </Box>
+                  </FormControl>
+
                   <FormControl className="outlined" variant="standard" size="small">
                     <FormLabel component="label" className="flex flex-row">
                       Email
@@ -219,6 +305,15 @@ export default function Page() {
                     />
                   </FormControl>
 
+                  {submitted && authError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Sign-in failed</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {authError}
+                      </Typography>
+                    </Alert>
+                  )}
+
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
                       <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
@@ -243,8 +338,8 @@ export default function Page() {
                     >
                       Reset Password
                     </Link>
-                    <Button type="submit" variant="contained" className="mb-4">
-                      Continue
+                    <Button type="submit" variant="contained" className="mb-4" disabled={isSubmitting}>
+                      {isSubmitting ? "Signing in..." : "Continue"}
                     </Button>
                   </Box>
 

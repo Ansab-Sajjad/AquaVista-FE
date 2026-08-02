@@ -21,128 +21,166 @@ export default function Page() {
                   Terms and Conditions
                 </Typography>
                 <Typography variant="body1" className="text-text-primary">
-                  Welcome to Gogo! These terms and conditions outline the rules and regulations for the use of Gogo.dev.
-                  By accessing this website we assume you accept these terms and conditions. Do not continue to use
-                  Gogo.dev if you do not agree to all of the terms and conditions stated on this page.
+                  Welcome to AquaVista. These Terms and Conditions govern your access to and use of the AquaVista
+                  platform and services. By creating an account or using AquaVista, you agree to be bound by these
+                  terms. If you do not agree, please do not use the platform.
                 </Typography>
               </Box>
 
               <Box>
                 <Typography variant="h6" className="mb-2">
-                  1. Introduction
+                  1. Acceptance of Terms
                 </Typography>
                 <Typography variant="body1">
-                  This document is a placeholder intended to simulate the structure and language of a standard terms and
-                  conditions agreement. The full legal content is to be inserted by authorized personnel or legal
-                  representatives.
+                  These Terms constitute a binding agreement between you and AquaVista. You must be at least 16 years
+                  old or the age of legal majority in your jurisdiction to use the service. By registering, you
+                  represent that you have the authority to agree on behalf of yourself or the organization you
+                  represent.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  2. Intellectual Property Rights
+                  2. About the Service
                 </Typography>
                 <Typography variant="body1">
-                  Other than the content you own, under these Terms, Gogo and/or its licensors own all the intellectual
-                  property rights and materials contained in this Website.
+                  AquaVista is a collaborative platform designed for water and wastewater utilities, municipalities,
+                  consultants, and related organizations to manage rate-study projects, upload and analyze data, and
+                  leverage AI-powered assistance through AVA. The platform is provided on a software-as-a-service basis
+                  and is intended to support, not replace, professional engineering, financial, and legal analysis.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  3. Restrictions
+                  3. Account Registration and Security
                 </Typography>
                 <Typography variant="body1">
-                  You are specifically restricted from all of the following: — Publishing any Website material in any
-                  other media — Selling, sublicensing and/or otherwise commercializing any Website material — Publicly
-                  performing and/or showing any Website material — Using this Website in any way that is or may be
-                  damaging to this Website — Engaging in any data mining, data harvesting, data extracting or any other
-                  similar activity
+                  You agree to provide accurate and complete information when creating an account and to keep your login
+                  credentials secure. You are responsible for all activity that occurs under your account. Notify us
+                  immediately if you suspect unauthorized access. AquaVista accounts are intended for authorized
+                  personnel of the registering organization.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  4. Your Content
+                  4. Acceptable Use
                 </Typography>
                 <Typography variant="body1">
-                  In these Website Standard Terms and Conditions, “Your Content” shall mean any audio, video text,
-                  images or other material you choose to display on this Website. Your Content must be your own and must
-                  not be infringing on any third partys rights. You agree to use this site responsibly. By accessing
-                  this platform, you shall not:
+                  You may use AquaVista only for lawful purposes and in accordance with these Terms. You agree not to:
                 </Typography>
                 <ul className="list-inside list-disc [&>li]:ms-2 [&>li:first-of-type]:mt-1">
-                  <li>Use the service for unlawful purposes</li>
-                  <li>Attempt to compromise the functionality, security, or integrity of the platform</li>
-                  <li>Violate any applicable local, national, or international law or regulation</li>
-                  <li>Post or transmit any unlawful, harassing, abusive, or otherwise objectionable material</li>
+                  <li>Use the platform for any unlawful, fraudulent, or harmful purpose</li>
+                  <li>Attempt to gain unauthorized access to the platform or other users&apos; accounts</li>
+                  <li>Upload malicious code, viruses, or harmful content</li>
+                  <li>Reverse engineer, decompile, or tamper with the service</li>
+                  <li>Share credentials or allow unauthorized users to access your account</li>
+                  <li>Upload data that infringes on the rights of any third party</li>
+                  <li>Use the platform in a way that could impair its security, stability, or availability</li>
                 </ul>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  5. No warranties
+                  5. Your Content and Data
                 </Typography>
                 <Typography variant="body1">
-                  This Website is provided “as is,” with all faults, and Gogo expresses no representations or
-                  warranties.
+                  You retain ownership of the data, documents, and other content you upload to AquaVista. By uploading
+                  content, you grant AquaVista a limited license to host, process, and display that content solely to
+                  provide the service to you and your authorized project collaborators. You are responsible for ensuring
+                  that your data is accurate, lawful, and does not violate any third-party rights. AquaVista does not
+                  claim ownership over your proprietary rate-study data.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  6. Limitation of liability
+                  6. AI Assistance and AVA
                 </Typography>
                 <Typography variant="body1">
-                  In no event shall Gogo, nor any of its officers, directors and employees, be held liable for anything
-                  arising out of or in any way connected with your use of this Website.
+                  AVA is an AI assistant designed to help interpret uploaded data and generate insights for your
+                  projects. Outputs from AVA are generated by artificial intelligence and should be reviewed by
+                  qualified professionals before being used for official decisions. AquaVista does not guarantee that
+                  AI-generated outputs are complete, accurate, or suitable for your specific circumstances. You should
+                  not rely on AVA outputs as a substitute for professional engineering, financial, or legal advice.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  7. Indemnification
+                  7. Intellectual Property
                 </Typography>
                 <Typography variant="body1">
-                  You hereby indemnify to the fullest extent Gogo from and against any and all liabilities, costs,
-                  demands, causes of action, damages and expenses.
+                  AquaVista and its licensors own all intellectual property rights in the platform, including the
+                  software, designs, logos, documentation, and AI model integrations, except for the content you upload.
+                  These rights are protected by copyright, trademark, and other laws. No transfer of ownership is
+                  granted by these Terms.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  8. Severability
+                  8. Confidentiality
                 </Typography>
                 <Typography variant="body1">
-                  If any provision of these Terms is found to be invalid under any applicable law, such provisions shall
-                  be deleted without affecting the remaining provisions.
+                  You agree to maintain the confidentiality of proprietary project data and not disclose such
+                  information to unauthorized third parties. AquaVista will use reasonable measures to safeguard your
+                  data in accordance with our Privacy Policy and applicable laws.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  9. Variation of Terms
+                  9. Disclaimers
                 </Typography>
                 <Typography variant="body1">
-                  Gogo is permitted to revise these Terms at any time as it sees fit.
+                  The platform is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any
+                  kind, either express or implied. AquaVista does not warrant that the service will be uninterrupted,
+                  error-free, or that defects will be corrected. The use of AquaVista and any reliance on its outputs is
+                  at your own risk.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  10. Assignment
+                  10. Limitation of Liability
                 </Typography>
                 <Typography variant="body1">
-                  The Company is allowed to assign, transfer, and subcontract its rights and/or obligations under these
-                  Terms without any notification.
+                  To the fullest extent permitted by law, AquaVista and its officers, employees, agents, and affiliates
+                  shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising
+                  from your use of the platform, even if advised of the possibility of such damages.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  11. Entire Agreement
+                  11. Indemnification
                 </Typography>
                 <Typography variant="body1">
-                  These Terms constitute the entire agreement between Gogo and you.
+                  You agree to indemnify and hold harmless AquaVista from any claims, damages, liabilities, costs, and
+                  expenses arising out of your use of the platform, your content, or your violation of these Terms.
                 </Typography>
                 <br />
 
                 <Typography variant="h6" className="mb-2">
-                  12. Governing Law & Jurisdiction
+                  12. Termination
                 </Typography>
                 <Typography variant="body1">
-                  These Terms will be governed by and interpreted in accordance with the laws of Germany, and you submit
-                  to the non-exclusive jurisdiction of the state and federal courts.
+                  You may stop using AquaVista at any time. We may suspend or terminate your account if you violate
+                  these Terms, misuse the service, or if required by law. Upon termination, your right to use the
+                  platform will immediately cease, and we may delete or retain your data in accordance with our data
+                  retention practices and the applicable governing documents.
+                </Typography>
+                <br />
+
+                <Typography variant="h6" className="mb-2">
+                  13. Changes to These Terms
+                </Typography>
+                <Typography variant="body1">
+                  We may update these Terms from time to time. We will post the updated version on this page and, where
+                  appropriate, notify you by email or through the platform. Continued use after changes constitutes
+                  acceptance of the revised Terms.
+                </Typography>
+                <br />
+
+                <Typography variant="h6" className="mb-2">
+                  14. Governing Law and Jurisdiction
+                </Typography>
+                <Typography variant="body1">
+                  These Terms shall be governed by and construed in accordance with the laws of the United States and
+                  the State of Delaware, without regard to conflict of law principles. Any disputes arising under these
+                  Terms shall be subject to the exclusive jurisdiction of the courts located in Delaware.
                 </Typography>
               </Box>
             </Box>

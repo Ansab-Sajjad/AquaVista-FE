@@ -1,5 +1,5 @@
 "use client";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 
@@ -10,6 +10,7 @@ import { PrimaryItem } from "@/components/layout/menu/primary-item";
 import { SecondaryItem } from "@/components/layout/menu/secondary-item";
 import { DEFAULTS } from "@/config";
 import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
+import { isAdminUser } from "@/lib/auth";
 import { cn, isPathMatch } from "@/lib/utils";
 import { leftMenuBottomItems, leftMenuItems } from "@/menu-items";
 import { MenuItem, MenuShowState, MenuType } from "@/types";
@@ -20,6 +21,8 @@ export default function LeftMenu() {
   const t = useTranslations("dashboard");
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isAdminViewingUserChat = Boolean(searchParams.get("userId")) && isAdminUser() && pathname.includes("/ask-ava");
 
   const {
     leftMenuType,
@@ -43,6 +46,16 @@ export default function LeftMenu() {
   const selectedPrimary = useRef<undefined | MenuItem>(undefined);
   const [activeItem, setActiveItem] = useState<MenuItem | undefined>(undefined);
   const [openedAccordions, setOpenedAccordions] = useState<OpenedAccordion[]>([]);
+  const visibleMenuItems = useMemo<MenuItem[]>(
+    () =>
+      leftMenuItems
+        .filter((item) => !item.adminOnly || isAdminUser())
+        .map((item) => ({
+          ...item,
+          children: item.children?.filter((child) => !child.adminOnly || isAdminUser()),
+        })),
+    [],
+  );
 
   const updateSelectedSecondaryItem = useCallback(() => {
     if (!activeItem?.children) {
@@ -73,7 +86,14 @@ export default function LeftMenu() {
   }, [activeItem?.id, selectedPrimary.current?.id, setLeftShowBackdrop, leftShowBackdrop]);
 
   useEffect(() => {
-    let selectedMenu = leftMenuItems.find((item) => item.href && isPathMatch(pathname, item.href));
+    let selectedMenu = isAdminViewingUserChat ? visibleMenuItems.find((item) => item.id === "users") : undefined;
+    if (!selectedMenu) {
+      selectedMenu = visibleMenuItems.find(
+        (item) =>
+          (item.href && isPathMatch(pathname, item.href)) ||
+          item.children?.some((child) => child.href && isPathMatch(pathname, child.href)),
+      );
+    }
     if (!selectedMenu && leftMenuBottomItems) {
       selectedMenu = leftMenuBottomItems.find((item) => item.href && isPathMatch(pathname, item.href));
     }
@@ -84,7 +104,7 @@ export default function LeftMenu() {
     }
     resetLeftMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, visibleMenuItems, isAdminViewingUserChat]);
 
   useEffect(() => {
     const resetCallback = () => {
@@ -107,7 +127,41 @@ export default function LeftMenu() {
     };
   }, [onResetLeft, hideLeftSecondary, updateSelectedSecondaryItem, menuSelectedSecondaryItem]);
 
+  const handleSignOut = () => {
+    const token = window.localStorage.getItem("aquavista-auth-token");
+
+    // Remove auth state directly from localStorage.
+    window.localStorage.removeItem("aquavista-auth-token");
+    window.localStorage.removeItem("aquavista-user");
+
+    // Trigger useAuthGuard in this tab and other tabs.
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "aquavista-auth-token",
+        newValue: null,
+      }),
+    );
+
+    if (token) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        keepalive: true,
+      }).catch(() => {
+        // Ignore logout failures.
+      });
+    }
+  };
+
   const handleSelectPrimaryItem = (item: MenuItem) => {
+    if (item.id === "signout") {
+      handleSignOut();
+      return;
+    }
+
     if (!temporaryShowPrimaryMenu && leftMenuType !== MenuType.SingleLayer) {
       setTemporaryShowPrimaryMenu(true);
     }
@@ -203,7 +257,7 @@ export default function LeftMenu() {
               <Box
                 className={cn("flex w-full flex-1 flex-col gap-0.5", leftMenuType === MenuType.SingleLayer && "gap-1")}
               >
-                {leftMenuItems
+                {visibleMenuItems
                   .filter((x) => !x.hideInMenu)
                   .map((item) =>
                     leftMenuType === MenuType.SingleLayer ? (
@@ -214,6 +268,7 @@ export default function LeftMenu() {
                         indent={0}
                         openedAccordions={openedAccordions}
                         setOpenedAccordions={setOpenedAccordions}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                         onSelect={(item) => {
                           if (temporaryShowPrimaryMenu) {
                             setTemporaryShowPrimaryMenu(false);
@@ -230,6 +285,7 @@ export default function LeftMenu() {
                         onSelect={(item) => handleSelectPrimaryItem(item)}
                         isActive={activeItem?.id === item.id}
                         menuType={leftMenuType}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                       />
                     ),
                   )}
@@ -246,6 +302,7 @@ export default function LeftMenu() {
                         indent={0}
                         openedAccordions={openedAccordions}
                         setOpenedAccordions={setOpenedAccordions}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                         onSelect={(item) => handleSelectPrimaryItem(item)}
                       />
                     ) : (
@@ -256,6 +313,7 @@ export default function LeftMenu() {
                         onSelect={(item) => handleSelectPrimaryItem(item)}
                         isActive={activeItem?.id === item.id}
                         menuType={leftMenuType}
+                        selectedOverrideId={isAdminViewingUserChat ? "users" : undefined}
                       />
                     ),
                   )}

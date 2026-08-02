@@ -11,6 +11,7 @@ import NiHearts from "@/icons/nexture/ni-hearts";
 import NiLock from "@/icons/nexture/ni-lock";
 import NiMessages from "@/icons/nexture/ni-messages";
 import NiPulse from "@/icons/nexture/ni-pulse";
+import { useAuthUser } from "@/hooks/use-auth-user";
 
 type UserProfileMenuProps = {
   selected: "overview" | "projects" | "permissions" | "friends" | "social";
@@ -18,14 +19,19 @@ type UserProfileMenuProps = {
 
 export default function UserProfileMenu({ selected }: UserProfileMenuProps) {
   const router = useRouter();
+  const authUser = useAuthUser();
 
   return (
     <Card className="mb-5">
       <CardContent className="flex flex-col items-center gap-5">
         <Box className="flex flex-col items-center">
-          <Avatar alt="avatar" src="/images/avatars/avatar-1.jpg" className="mb-2 h-20 w-20 rounded-4xl" />
+          <Avatar
+            alt={authUser.name ?? "avatar"}
+            src={authUser.image || authUser.profileImage || "/images/avatars/avatar-1.jpg"}
+            className="mb-2 h-20 w-20 rounded-4xl"
+          />
           <Typography variant="subtitle1" component="p">
-            Laura Ellis
+            {authUser.name ?? ""}
           </Typography>
           <Typography variant="body2" component="p" className="text-text-secondary -mt-0.5">
             Executive UI/UX Designer

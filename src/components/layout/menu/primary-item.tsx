@@ -15,19 +15,28 @@ type Props = {
   isActive: boolean;
   menuType: MenuType;
   className?: string;
+  selectedOverrideId?: string;
 };
 
-export const PrimaryItem = memo(function PrimaryItem({ item, onSelect, isActive, menuType, className }: Props) {
+export const PrimaryItem = memo(function PrimaryItem({
+  item,
+  onSelect,
+  isActive,
+  menuType,
+  className,
+  selectedOverrideId,
+}: Props) {
   const t = useTranslations("dashboard");
 
   const pathname = usePathname();
   const selected = useMemo(() => {
     if (!item) return false;
+    if (selectedOverrideId) return item.id === selectedOverrideId;
     if (item.href && isPathMatch(pathname, item.href)) return true;
     if (item.children) return item.children.some((child) => child.href && isPathMatch(pathname, child.href));
 
     return false;
-  }, [item, pathname]);
+  }, [item, pathname, selectedOverrideId]);
 
   const [tooltipOpen, setTooltipOpen] = useState(false);
 

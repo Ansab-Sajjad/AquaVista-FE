@@ -6,13 +6,13 @@ export default function Logo({ classNameFull, classNameMobile }: { classNameFull
       <img
         src="/images/email/logo.png"
         alt="Logo"
-        className={cn("h-[27px] w-auto", classNameFull)}
+        className={cn("h-[31px] w-auto", classNameFull)}
       />
 
       <img
         src="/images/email/logo.png"
         alt="Logo"
-        className={cn("h-[27px] w-auto", classNameMobile)}
+        className={cn("h-[31px] w-auto", classNameMobile)}
       />
     </>
   );
