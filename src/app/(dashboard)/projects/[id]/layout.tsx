@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 
 const PROJECT_TABS = [
+  { id: "overview", label: "Overview", href: (id: string) => `/projects/${id}/overview` },
   { id: "dashboard", label: "Dashboard", href: (id: string) => `/projects/${id}/dashboard` },
   { id: "data", label: "Data", href: (id: string) => `/projects/${id}/data` },
   { id: "ask-ava", label: "Ask AVA", href: (id: string) => `/projects/${id}/ask-ava` },

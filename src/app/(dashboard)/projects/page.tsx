@@ -23,6 +23,8 @@ import {
 } from "@mui/material";
 
 import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import StatsGrid, { StatConfig } from "@/components/stats/stats-grid";
+import { useGlobalStats } from "@/hooks/use-stats";
 
 type Project = {
   id: string;
@@ -47,6 +49,40 @@ export default function ProjectsPage() {
     description: "",
   });
   const isAdmin = isAdminUser();
+  const { stats: globalStats, loading: statsLoading, error: statsError } = useGlobalStats();
+
+  const statCards: StatConfig[] = globalStats
+    ? [
+        {
+          key: "projects",
+          label: "Projects",
+          value: globalStats.totals.projects,
+          data: globalStats.trends.projects,
+          plotType: "line",
+        },
+        {
+          key: "members",
+          label: "Team Members",
+          value: globalStats.totals.members,
+          data: Array(7).fill(globalStats.totals.members),
+          plotType: "bar",
+        },
+        {
+          key: "dataFiles",
+          label: "Data Files",
+          value: globalStats.totals.dataFiles,
+          data: globalStats.trends.dataFiles,
+          plotType: "line",
+        },
+        {
+          key: "pinnedItems",
+          label: "Pinned Insights",
+          value: globalStats.totals.pinnedItems,
+          data: globalStats.trends.pinnedItems,
+          plotType: "bar",
+        },
+      ]
+    : [];
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -162,6 +198,8 @@ export default function ProjectsPage() {
         )}
       </Box>
 
+      <StatsGrid stats={statCards} loading={statsLoading} error={statsError} title="Overview" />
+
       {error && (
         <Alert severity="error" className="bg-background-paper/70">
           {error}
@@ -189,7 +227,7 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
               <Link
-                href={`/projects/${project.id}/dashboard`}
+                href={`/projects/${project.id}/overview`}
                 className="block h-full no-underline"
               >
                 <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-shadow hover:shadow-lg">

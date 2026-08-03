@@ -5,8 +5,11 @@ import { useEffect, useState } from "react";
 
 import { Box, Button, Card, CardContent, Chip, Typography } from "@mui/material";
 
-import { cn } from "@/lib/utils";
+import AvaChart from "@/components/ask-ava/ava-chart";
+import AvaTable from "@/components/ask-ava/ava-table";
+import type { AvaChartData, AvaTableData } from "@/components/ask-ava/types";
 import { getStoredAuthToken } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -18,6 +21,8 @@ type PinnedItem = {
   createdBy: string;
   createdAt: string;
   content: string;
+  tableData?: AvaTableData;
+  chartData?: AvaChartData;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -25,6 +30,14 @@ const TYPE_LABELS: Record<string, string> = {
   table: "Table",
   chart: "Basic Chart",
 };
+
+function formatDate(value: string): string {
+  try {
+    return new Date(value).toLocaleDateString();
+  } catch {
+    return value;
+  }
+}
 
 export default function DashboardPage() {
   const params = useParams();
@@ -46,14 +59,11 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/dashboard`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/dashboard`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           throw new Error("Failed to load pinned items");
@@ -83,7 +93,7 @@ export default function DashboardPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -156,6 +166,7 @@ export default function DashboardPage() {
             className={cn(
               "bg-background-paper shadow-darker-xs flex h-full flex-col rounded-3xl",
               item.type === "table" && "md:col-span-2 xl:col-span-2",
+              item.type === "chart" && "md:col-span-2 xl:col-span-2",
             )}
           >
             <CardContent className="flex h-full flex-col gap-3 p-5">
@@ -171,15 +182,21 @@ export default function DashboardPage() {
                 <Chip label={TYPE_LABELS[item.type]} size="small" color="primary" variant="outlined" />
               </Box>
 
-              <Box className="bg-grey-25 rounded-2xl p-4">
-                <Typography variant="body2" className="text-text-primary whitespace-pre-wrap">
-                  {item.content}
-                </Typography>
-              </Box>
+              {item.type === "table" && item.tableData ? (
+                <AvaTable data={item.tableData} />
+              ) : item.type === "chart" && item.chartData ? (
+                <AvaChart data={item.chartData} />
+              ) : (
+                <Box className="bg-grey-25 rounded-2xl p-4">
+                  <Typography variant="body2" className="text-text-primary whitespace-pre-wrap">
+                    {item.content}
+                  </Typography>
+                </Box>
+              )}
 
               <Box className="mt-auto flex items-center justify-between pt-2">
                 <Typography variant="caption" className="text-text-secondary">
-                  {item.createdBy} &bull; {item.createdAt}
+                  {item.createdBy} &bull; {formatDate(item.createdAt)}
                 </Typography>
                 <Button size="small" color="error" onClick={() => handleUnpin(item.id)}>
                   Unpin

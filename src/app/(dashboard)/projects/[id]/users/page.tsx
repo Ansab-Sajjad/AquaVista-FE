@@ -1,14 +1,16 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -19,7 +21,6 @@ import {
   FormControl,
   FormLabel,
   IconButton,
-  Input,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -30,6 +31,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from "@mui/material";
 
@@ -56,9 +58,19 @@ export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [newUser, setNewUser] = useState({ email: "" });
   const [menuAnchor, setMenuAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
+  const [selectedToInvite, setSelectedToInvite] = useState<(User | string)[]>([]);
+
+  const activeUsers = useMemo(() => {
+    const projectUserIds = new Set(users.map((u) => u.id));
+    return allUsers.filter(
+      (u) => u.status?.toLowerCase() === "active" && !projectUserIds.has(u.id),
+    );
+  }, [allUsers, users]);
 
   // Redirect non-admins away — tab is hidden but guard direct URL access too
   useEffect(() => {
@@ -90,7 +102,7 @@ export default function UsersPage() {
       setUsers(
         Array.isArray(data)
           ? data.map((item: any) => ({
-              id: item.id || item._id,
+              id: String(item.id || item._id || ""),
               name: item.name || item.email?.split("@")?.[0] || "",
               email: item.email,
               role: item.role === "admin" ? "Super Admin" : "Project User",
@@ -111,36 +123,121 @@ export default function UsersPage() {
     void loadUsers();
   }, [loadUsers]);
 
+  useEffect(() => {
+    if (!open || !isAdminUser()) return;
+    let cancelled = false;
+    const loadAllUsers = async () => {
+      setLoadingAllUsers(true);
+      setInviteError(null);
+      try {
+        const token = getStoredAuthToken();
+        const response = await fetch(`${API_BASE_URL}/api/projects/admin/users`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(data?.message || "Unable to load users.");
+        if (!cancelled) {
+          setAllUsers(
+            Array.isArray(data)
+              ? data.map((item: any) => ({
+                  id: String(item.id || item._id || ""),
+                  name: item.name || item.email?.split("@")?.[0] || "",
+                  email: item.email || "",
+                  role: item.role || "project_user",
+                  status: item.status || "pending",
+                  lastActive: item.lastActive,
+                }))
+              : [],
+          );
+        }
+      } catch (err) {
+        if (!cancelled) setInviteError(err instanceof Error ? err.message : "Unable to load users.");
+      } finally {
+        if (!cancelled) setLoadingAllUsers(false);
+      }
+    };
+    void loadAllUsers();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   const handleInvite = async () => {
-    if (!newUser.email.trim() || !projectId) return;
+    if (!projectId) return;
+
+    const emails = [
+      ...new Set(
+        selectedToInvite
+          .map((item) => (typeof item === "string" ? item : item.email))
+          .filter(Boolean),
+      ),
+    ];
+
+    if (emails.length === 0) {
+      setInviteError("Please enter at least one email or select a user.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = emails.filter((email) => !emailRegex.test(email));
+    if (invalid.length > 0) {
+      setInviteError(`Invalid email address(es): ${invalid.join(", ")}`);
+      return;
+    }
 
     setSubmitting(true);
-    setError(null);
+    setInviteError(null);
+    const token = getStoredAuthToken();
 
-    try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/users`, {
-        method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: newUser.email }),
-      });
+    const failed: string[] = [];
+    const alreadyMember: string[] = [];
+    let invitedCount = 0;
 
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || "Unable to invite user.");
+    for (const email of emails) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/users`, {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (response.status === 409) {
+            alreadyMember.push(email);
+          } else {
+            failed.push(`${email} — ${data?.message || "Unable to invite"}`);
+          }
+        } else {
+          invitedCount++;
+        }
+      } catch (err) {
+        failed.push(`${email} — ${err instanceof Error ? err.message : "Unable to invite"}`);
       }
-
-      setNewUser({ email: "" });
-      setOpen(false);
-      await loadUsers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to invite user.");
-    } finally {
-      setSubmitting(false);
     }
+
+    if (invitedCount > 0) {
+      await loadUsers();
+    }
+
+    if (failed.length === 0 && alreadyMember.length === 0) {
+      setSelectedToInvite([]);
+      setOpen(false);
+    } else {
+      const messages: string[] = [];
+      if (alreadyMember.length > 0) {
+        messages.push(`${alreadyMember.length} already in project: ${alreadyMember.join(", ")}`);
+      }
+      if (failed.length > 0) {
+        messages.push(`Failed: ${failed.join("; ")}`);
+      }
+      setInviteError(messages.join(" | "));
+    }
+
+    setSubmitting(false);
   };
 
   const handleRemove = async (id: string) => {
@@ -292,24 +389,116 @@ export default function UsersPage() {
         </MenuItem>
       </Menu>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Invite User</DialogTitle>
-        <DialogContent className="flex flex-col gap-4">
-          <FormControl className="outlined" variant="standard" size="small">
-            <FormLabel>Email address</FormLabel>
-            <Input
-              value={newUser.email}
-              onChange={(e) => setNewUser({ email: e.target.value })}
-              placeholder="jane.smith@example.com"
+      <Dialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setSelectedToInvite([]);
+          setInviteError(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{ paper: { sx: { overflow: "visible" } } }}
+      >
+        <DialogTitle>Invite Users</DialogTitle>
+        <DialogContent className="flex flex-col gap-4" sx={{ overflow: "visible" }}>
+          {inviteError && (
+            <Alert severity="error" className="bg-background-paper/70">
+              {inviteError}
+            </Alert>
+          )}
+          <FormControl className="outlined" variant="standard" size="small" fullWidth>
+            <FormLabel>Users or email addresses</FormLabel>
+            <Autocomplete
+              multiple
+              freeSolo
+              disableCloseOnSelect
+              loading={loadingAllUsers}
+              options={activeUsers}
+              value={selectedToInvite}
+              onChange={(_event, value) => setSelectedToInvite(value)}
+              filterSelectedOptions
+              disablePortal
+              slotProps={{
+                popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 1 } },
+                listbox: { sx: { maxHeight: 240 } },
+              }}
+              getOptionLabel={(option) =>
+                typeof option === "string" ? option : option.name || option.email
+              }
+              isOptionEqualToValue={(option, value) => {
+                if (typeof option === "string" || typeof value === "string") return option === value;
+                return option.id === value.id;
+              }}
+              getOptionKey={(option) =>
+                typeof option === "string" ? option : option.id || option.email
+              }
+              renderOption={(props, option, { selected }) => {
+                const { key, ...optionProps } = props;
+                const label = typeof option === "string" ? option : option.name;
+                const email = typeof option === "string" ? option : option.email;
+                return (
+                  <Box component="li" key={key} {...optionProps} className="flex items-center gap-2">
+                    <Checkbox size="small" checked={selected} sx={{ p: 0.5 }} />
+                    <Box className="flex flex-col">
+                      <Typography variant="body2" className="font-medium">{label}</Typography>
+                      {email && email !== label && (
+                        <Typography variant="caption" className="text-text-secondary">{email}</Typography>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              }}
+              noOptionsText={
+                loadingAllUsers
+                  ? "Loading users..."
+                  : activeUsers.length === 0
+                    ? "No active users available to invite"
+                    : "No matches found"
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  className="outlined"
+                  placeholder="Type an email or select active users"
+                  slotProps={{
+                    htmlInput: {
+                      ...params.slotProps.htmlInput,
+                      autoComplete: "new-password",
+                    },
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {loadingAllUsers && <CircularProgress size={16} sx={{ mr: 2 }} />}
+                          {params.slotProps.input?.endAdornment}
+                        </>
+                      ),
+                    },
+                  }}
+                />
+              )}
             />
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)} color="grey">
+          <Button
+            onClick={() => {
+              setOpen(false);
+              setSelectedToInvite([]);
+              setInviteError(null);
+            }}
+            color="grey"
+          >
             Cancel
           </Button>
-          <Button variant="contained" onClick={() => void handleInvite()} disabled={submitting}>
-            {submitting ? "Inviting..." : "Send Invite"}
+          <Button
+            variant="contained"
+            onClick={() => void handleInvite()}
+            disabled={submitting || selectedToInvite.length === 0}
+          >
+            {submitting ? "Inviting..." : "Send Invites"}
           </Button>
         </DialogActions>
       </Dialog>

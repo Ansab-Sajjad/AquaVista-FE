@@ -7,6 +7,7 @@ import { getStoredAuthToken } from "@/lib/auth";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export type NotificationCategory =
+  | "file_uploaded"
   | "file_upload_complete"
   | "file_upload_failed"
   | "member_added"
