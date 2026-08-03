@@ -146,7 +146,7 @@ export default function PasswordPage() {
               Password
             </Typography>
             <Breadcrumbs>
-              <Link color="inherit" href="/projects">Projects</Link>
+              <Link color="inherit" href="/overview">Overview</Link>
               <Link color="inherit" href="/settings">Settings</Link>
               <Typography variant="body2">Password</Typography>
             </Breadcrumbs>

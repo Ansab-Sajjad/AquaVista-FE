@@ -3,7 +3,7 @@ import { ContentType, MenuType } from "./types";
 import { ModeVariant, ThemeVariant } from "@/constants";
 
 export const DEFAULTS = {
-  appRoot: "/projects",
+  appRoot: "/overview",
   locale: "en",
   themeColor: "theme-orange" as ThemeVariant,
   themeMode: "system" as ModeVariant,

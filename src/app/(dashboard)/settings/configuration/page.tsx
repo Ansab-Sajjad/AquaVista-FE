@@ -83,8 +83,8 @@ export default function ConfigurationPage() {
               Configuration
             </Typography>
             <Breadcrumbs>
-              <Link color="inherit" href="/projects">
-                Projects
+              <Link color="inherit" href="/overview">
+                Overview
               </Link>
               <Link color="inherit" href="/settings">
                 Settings
