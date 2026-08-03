@@ -1,7 +1,8 @@
 "use client";
+import { useGoogleLogin } from "@react-oauth/google";
 import { useFormik } from "formik";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import * as yup from "yup";
 
 import {
@@ -20,10 +21,14 @@ import {
 } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
+import { DEFAULTS } from "@/config";
 import { THEME_OPTIONS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
+import { useGitHubAuth } from "@/hooks/use-github-auth";
+import { setAuthCookies } from "@/lib/auth";
 import { useThemeContext } from "@/theme/theme-provider";
+import { useRouter } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -53,6 +58,7 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 };
 
 export default function Page() {
+  const router = useRouter();
   const { setTheme } = useThemeContext();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,6 +69,61 @@ export default function Page() {
   useEffect(() => {
     setTheme(THEME_OPTIONS.ORANGE);
   }, [setTheme]);
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setAuthError(null);
+      setIsSubmitting(true);
+      try {
+        const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const userInfo = await userInfoRes.json();
+        const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: tokenResponse.access_token, flow: "access_token", userInfo }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.message || "Google sign-in failed.");
+        setAuthCookies(data.token, data.user || {});
+        setTheme(THEME_OPTIONS.BLUE);
+        router.push(DEFAULTS.appRoot);
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Google sign-in failed.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    onError: () => setAuthError("Google sign-in was cancelled or failed."),
+  });
+
+  // GitHub OAuth handler — opens a small popup window (like Google sign-in).
+  // The popup completes verification, posts the code back here, and closes itself.
+  const signInWithGitHub = useGitHubAuth();
+  const handleGitHubSignIn = async () => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const code = await signInWithGitHub();
+      const response = await fetch(`${API_BASE_URL}/api/auth/github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.token || !data.user) {
+        throw new Error(data?.message || "GitHub sign-in failed.");
+      }
+      setAuthCookies(data.token, data.user);
+      setTheme(THEME_OPTIONS.BLUE);
+      router.push(DEFAULTS.appRoot);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "GitHub sign-in failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -191,10 +252,16 @@ export default function Page() {
               ) : (
                 <Box className="flex flex-col gap-5">
                   <Box className="flex flex-col gap-2 md:flex-row">
-                    <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
-                      <Box className="me-2">{googleSVG()}</Box>Sign in with Google
+                    <Button
+                      variant="outlined"
+                      color="grey"
+                      className="flex-none md:w-1/2"
+                      onClick={() => googleLogin()}
+                      disabled={isSubmitting}
+                    >
+                      <Box className="me-2">{googleSVG()}</Box>Sign up with Google
                     </Button>
-                    <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
+                    <Button variant="outlined" color="grey" className="flex-none md:w-1/2" onClick={handleGitHubSignIn} disabled={isSubmitting}>
                       <Box className="me-2">{githubSVG()}</Box>Sign up with GitHub
                     </Button>
                   </Box>

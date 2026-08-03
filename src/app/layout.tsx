@@ -14,6 +14,7 @@ import BackgroundWrapper from "@/components/layout/containers/background-wrapper
 import SnackbarWrapper from "@/components/layout/containers/snackbar-wrapper";
 import LayoutContextProvider from "@/components/layout/layout-context";
 import ThemeProvider from "@/theme/theme-provider";
+import GoogleAuthProvider from "@/components/auth/google-auth-provider";
 
 const mulish = Mulish({
   subsets: ["latin"],
@@ -72,14 +73,16 @@ export default async function RootLayout({
           }}
         >
           <NextIntlClientProvider messages={messages}>
-            <ThemeProvider>
-              <LayoutContextProvider>
-                <BackgroundWrapper />
-                <SnackbarWrapper>
-                  <Suspense fallback={<Loading />}>{children}</Suspense>
-                </SnackbarWrapper>
-              </LayoutContextProvider>
-            </ThemeProvider>
+            <GoogleAuthProvider>
+              <ThemeProvider>
+                <LayoutContextProvider>
+                  <BackgroundWrapper />
+                  <SnackbarWrapper>
+                    <Suspense fallback={<Loading />}>{children}</Suspense>
+                  </SnackbarWrapper>
+                </LayoutContextProvider>
+              </ThemeProvider>
+            </GoogleAuthProvider>
           </NextIntlClientProvider>
         </AppRouterCacheProvider>
       </body>
