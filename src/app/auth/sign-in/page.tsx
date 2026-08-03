@@ -1,4 +1,5 @@
 "use client";
+import { useGoogleLogin } from "@react-oauth/google";
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,6 +41,7 @@ const validationSchema = yup.object({
 });
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "";
 
 const MOCK_CREDENTIALS = {
   email: "admin@Aquavista.dev",
@@ -79,6 +81,99 @@ export default function Page() {
   useEffect(() => {
     setTheme(THEME_OPTIONS.ORANGE);
   }, [setTheme]);
+
+  async function handleGoogleCredential(credential: string) {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.message || "Google sign-in failed.");
+      setAuthCookies(data.token, data.user || {});
+      const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
+      setTheme(roleTheme);
+      router.push(DEFAULTS.appRoot);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Google sign-in failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // GitHub OAuth handler
+  const handleGitHubSignIn = () => {
+    const redirectUri = window.location.origin + "/auth/sign-in";
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`;
+    window.location.href = githubAuthUrl;
+  };
+
+  // Handle GitHub OAuth callback code in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    if (code) {
+      setAuthError(null);
+      setIsSubmitting(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      fetch(`${API_BASE_URL}/api/auth/github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.token && data.user) {
+            setAuthCookies(data.token, data.user);
+            const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
+            setTheme(roleTheme);
+            router.push(DEFAULTS.appRoot);
+          } else {
+            throw new Error(data?.message || "GitHub sign-in failed.");
+          }
+        })
+        .catch((error) => {
+          setAuthError(error instanceof Error ? error.message : "GitHub sign-in failed.");
+          setIsSubmitting(false);
+        });
+    }
+  }, [router, setTheme]);
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      // Exchange access token for ID token via userinfo, then sign in
+      // @react-oauth/google with implicit flow returns access_token; use credential flow instead
+      // This path handles the access_token flow
+      setAuthError(null);
+      setIsSubmitting(true);
+      try {
+        const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const userInfo = await userInfoRes.json();
+        // Use the sub as a makeshift credential via our backend; send userinfo directly
+        const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: tokenResponse.access_token, flow: "access_token", userInfo }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.message || "Google sign-in failed.");
+        setAuthCookies(data.token, data.user || {});
+        const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
+        setTheme(roleTheme);
+        router.push(DEFAULTS.appRoot);
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Google sign-in failed.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    onError: () => setAuthError("Google sign-in was cancelled or failed."),
+  });
 
   const formik = useFormik({
     initialValues: {
@@ -216,10 +311,16 @@ export default function Page() {
 
               <Box className="flex flex-col gap-5">
                 <Box className="flex flex-col gap-2 md:flex-row">
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => googleLogin()}
+                    disabled={isSubmitting}
+                  >
                     <Box className="me-2">{googleSVG()}</Box>Sign in with Google
                   </Button>
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
+                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2" onClick={handleGitHubSignIn} disabled={isSubmitting}>
                     <Box className="me-2">{githubSVG()}</Box>Sign in with GitHub
                   </Button>
                 </Box>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
@@ -25,6 +25,7 @@ import {
   MenuList,
   PopoverVirtualElement,
   Popper,
+  Skeleton,
   Tab,
   Tooltip,
   Typography,
@@ -38,6 +39,8 @@ import NiSettings from "@/icons/nexture/ni-settings";
 import NiStructure from "@/icons/nexture/ni-structure";
 import NiUsers from "@/icons/nexture/ni-users";
 import NextureIcons, { IconName } from "@/icons/nexture-icons";
+import { useNotifications, type NotificationItem as NotificationItemData } from "@/hooks/use-notifications";
+import { getCategoryConfig } from "./notification-category-config";
 import { cn } from "@/lib/utils";
 
 type ChipData = {
@@ -69,121 +72,45 @@ type NotificationData = {
   markedUnread: boolean;
 };
 
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin} minute${diffMin > 1 ? "s" : ""} ago`;
+  if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
+  return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+}
+
+function toNotificationData(n: NotificationItemData): NotificationData {
+  const config = n.type === "system" ? getCategoryConfig(n.category) : null;
+  return {
+    id: n.id,
+    labelBold: n.title,
+    labelRegular: n.message,
+    type: n.type,
+    avatarImage: n.actor?.profileImage || undefined,
+    avatarIcon: config?.icon,
+    avatarColorMain: config?.colorClass,
+    avatarColorBackground: config?.backgroundClass,
+    href: n.href || undefined,
+    time: formatTimeAgo(n.createdAt),
+    temporaryUnread: n.temporaryUnread,
+    markedUnread: n.markedUnread,
+  };
+}
+
 export default function Notifications() {
-  const [notificationData, setNotificationData] = useState<NotificationData[]>([
-    {
-      id: "100",
-      labelBold: "Laura Ellis",
-      labelRegular: "added a product with an image.",
-      type: "user",
-      time: "2 minutes ago",
-      href: "/pages/ecommerce/product-detail",
-      avatarImage: "/images/avatars/avatar-1.jpg",
-      temporaryUnread: true,
-      markedUnread: false,
-      chips: [{ label: "product-1.jpg", image: "/images/products/product-1.jpg", id: "1001" }],
-    },
-    {
-      id: "101",
-      labelBold: "Zoila Vittorino",
-      labelRegular: "added an issue.",
-      type: "user",
-      time: "14 minutes ago",
-      href: "/pages/support/issue-detail",
-      avatarImage: "/images/avatars/avatar-2.jpg",
-      temporaryUnread: true,
-      markedUnread: false,
-      chips: [
-        { label: "Products", id: "1011" },
-        { label: "Electronics", id: "1012" },
-      ],
-    },
-    {
-      id: "102",
-      labelBold: "Travis Howard",
-      labelRegular: "requested editor access.",
-      type: "user",
-      time: "20 minutes ago",
-      avatarImage: "/images/avatars/avatar-3.jpg",
-      temporaryUnread: false,
-      markedUnread: false,
-      actions: [
-        { type: "positive", id: "1021", label: "Approve" },
-        { type: "negative", id: "1022", label: "Decline" },
-      ],
-    },
-    {
-      id: "103",
-      labelBold: "Cindy Baker",
-      labelRegular: "added a post.",
-      type: "user",
-      time: "2 hours ago",
-      href: "/pages/user/social",
-      avatarImage: "/images/avatars/avatar-4.jpg",
-      temporaryUnread: false,
-      markedUnread: false,
-    },
-    {
-      id: "104",
-      labelBold: "New Version!",
-      labelRegular: "Introducing v2 with lots of new features.",
-      type: "system",
-      time: "4 hours ago",
-      href: "/pages/miscellaneous/article",
-      avatarColorBackground: "bg-accent-3-light/10",
-      avatarColorMain: "text-accent-3",
-      avatarIcon: "NiFire",
-      temporaryUnread: false,
-      markedUnread: false,
-    },
-    {
-      id: "105",
-      labelBold: "Tip:",
-      labelRegular: "Something is wrong? Create an issue.",
-      type: "system",
-      time: "4 hours ago",
-      href: "/pages/support/add-issue",
-      avatarColorBackground: "bg-accent-1-light/10",
-      avatarColorMain: "text-accent-1",
-      avatarIcon: "NiBulbOn",
-      temporaryUnread: false,
-      markedUnread: false,
-    },
-    {
-      id: "106",
-      labelBold: "Stuck somewhere?",
-      labelRegular: "Use Knowledge Base to get help.",
-      type: "system",
-      time: "6 hours ago",
-      href: "/pages/miscellaneous/knowledge-base",
-      avatarColorBackground: "bg-accent-2-light/10",
-      avatarColorMain: "text-accent-2",
-      avatarIcon: "NiQuestionHexagon",
-      temporaryUnread: false,
-      markedUnread: false,
-    },
-  ]);
+  const { notifications, unreadCount, loading, markOneAsRead, markOneAsUnread, markAllAsRead } =
+    useNotifications();
+
+  const notificationData = useMemo(() => notifications.map(toNotificationData), [notifications]);
 
   const router = useRouter();
-
-  const [seenTemporary, setSeenTemporary] = React.useState(false);
-  const count = useMemo(() => {
-    let c = 0;
-    if (seenTemporary) {
-      notificationData.forEach((notification) => {
-        if (notification.markedUnread) {
-          c++;
-        }
-      });
-    } else {
-      notificationData.forEach((notification) => {
-        if (notification.temporaryUnread || notification.markedUnread) {
-          c++;
-        }
-      });
-    }
-    return c;
-  }, [notificationData, seenTemporary]);
 
   const [tooltipShow, setTooltipShow] = React.useState(false);
 
@@ -191,7 +118,6 @@ export default function Notifications() {
   const anchorRef = React.useRef<HTMLButtonElement>(null);
 
   const handleToggle = () => {
-    setSeenTemporary(true);
     setOpen((prevOpen) => !prevOpen);
   };
 
@@ -199,7 +125,7 @@ export default function Notifications() {
     if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
       return;
     }
-    markAllTemporaryRead();
+    markAllAsRead();
     setOpen(false);
   };
 
@@ -210,48 +136,6 @@ export default function Notifications() {
   };
 
   const [notificationOn, setNotificationOn] = React.useState(true);
-
-  const markAllTemporaryRead = () => {
-    const newNotificationData = notificationData.map((notification) => {
-      if (notification.temporaryUnread) {
-        return {
-          ...notification,
-          temporaryUnread: false,
-        };
-      } else {
-        return notification;
-      }
-    });
-    setNotificationData(newNotificationData);
-  };
-
-  const handleMarkAsRead = (id: string) => {
-    const newNotificationData = notificationData.map((notification) => {
-      if (id === notification.id) {
-        return {
-          ...notification,
-          markedUnread: false,
-        };
-      } else {
-        return notification;
-      }
-    });
-    setNotificationData(newNotificationData);
-  };
-
-  const handleMarkAsUnread = (id: string) => {
-    const newNotificationData = notificationData.map((notification) => {
-      if (id === notification.id) {
-        return {
-          ...notification,
-          markedUnread: true,
-        };
-      } else {
-        return notification;
-      }
-    });
-    setNotificationData(newNotificationData);
-  };
 
   const handleClick = (href: string | undefined, event: any) => {
     if (href) {
@@ -264,7 +148,7 @@ export default function Notifications() {
     <>
       <Tooltip title="Notifications" placement="bottom" arrow open={!open && tooltipShow}>
         <Badge
-          badgeContent={count}
+          badgeContent={unreadCount}
           color="primary"
           slotProps={{
             badge: { className: "ltr:right-2! rtl:left-2! top-2 pointer-events-none" },
@@ -372,69 +256,89 @@ export default function Notifications() {
                     </TabList>
                     <TabPanel value="1" className="mb-4 p-0">
                       <List className="max-h-96 overflow-auto">
-                        {notificationData.map((notification: NotificationData) => {
-                          return (
+                        {loading ? (
+                          <NotificationSkeleton />
+                        ) : notificationData.length === 0 ? (
+                          <EmptyState />
+                        ) : (
+                          notificationData.map((notification: NotificationData) => (
                             <NotificationItem
                               key={notification.id}
                               {...notification}
                               onMarkAsRead={() => {
-                                handleMarkAsRead(notification.id);
+                                markOneAsRead(notification.id);
                               }}
                               onMarkAsUnread={() => {
-                                handleMarkAsUnread(notification.id);
+                                markOneAsUnread(notification.id);
                               }}
                               onClick={(event) => {
                                 handleClick(notification.href, event);
                               }}
                             />
-                          );
-                        })}
+                          ))
+                        )}
                       </List>
                     </TabPanel>
                     <TabPanel value="2" className="mb-4 p-0">
                       <List className="max-h-96 overflow-auto">
-                        {notificationData
-                          .filter((notification) => notification.type === "system")
-                          .map((notification: NotificationData) => {
-                            return (
-                              <NotificationItem
-                                key={notification.id}
-                                {...notification}
-                                onMarkAsRead={() => {
-                                  handleMarkAsRead(notification.id);
-                                }}
-                                onMarkAsUnread={() => {
-                                  handleMarkAsUnread(notification.id);
-                                }}
-                                onClick={(event) => {
-                                  handleClick(notification.href, event);
-                                }}
-                              />
-                            );
-                          })}
+                        {loading ? (
+                          <NotificationSkeleton />
+                        ) : (
+                          <>
+                            {notificationData.filter((n) => n.type === "system").length === 0 ? (
+                              <EmptyState />
+                            ) : (
+                              notificationData
+                                .filter((notification) => notification.type === "system")
+                                .map((notification: NotificationData) => (
+                                  <NotificationItem
+                                    key={notification.id}
+                                    {...notification}
+                                    onMarkAsRead={() => {
+                                      markOneAsRead(notification.id);
+                                    }}
+                                    onMarkAsUnread={() => {
+                                      markOneAsUnread(notification.id);
+                                    }}
+                                    onClick={(event) => {
+                                      handleClick(notification.href, event);
+                                    }}
+                                  />
+                                ))
+                            )}
+                          </>
+                        )}
                       </List>
                     </TabPanel>
                     <TabPanel value="3" className="mb-4 p-0">
                       <List className="max-h-96 overflow-auto">
-                        {notificationData
-                          .filter((notification) => notification.type === "user")
-                          .map((notification: NotificationData) => {
-                            return (
-                              <NotificationItem
-                                key={notification.id}
-                                {...notification}
-                                onMarkAsRead={() => {
-                                  handleMarkAsRead(notification.id);
-                                }}
-                                onMarkAsUnread={() => {
-                                  handleMarkAsUnread(notification.id);
-                                }}
-                                onClick={(event) => {
-                                  handleClick(notification.href, event);
-                                }}
-                              />
-                            );
-                          })}
+                        {loading ? (
+                          <NotificationSkeleton />
+                        ) : (
+                          <>
+                            {notificationData.filter((n) => n.type === "user").length === 0 ? (
+                              <EmptyState />
+                            ) : (
+                              notificationData
+                                .filter((notification) => notification.type === "user")
+                                .map((notification: NotificationData) => (
+                                  <NotificationItem
+                                    key={notification.id}
+                                    {...notification}
+                                    onMarkAsRead={() => {
+                                      markOneAsRead(notification.id);
+                                    }}
+                                    onMarkAsUnread={() => {
+                                      markOneAsUnread(notification.id);
+                                    }}
+                                    onClick={(event) => {
+                                      handleClick(notification.href, event);
+                                    }}
+                                  />
+                                ))
+                            )}
+                          </>
+                        )}
                       </List>
                     </TabPanel>
                   </TabContext>
@@ -603,6 +507,35 @@ function NotificationItem({
           onClick={handleClickEllipsis}
         />
       </ListItem>
+    </>
+  );
+}
+
+function EmptyState() {
+  return (
+    <Box className="flex flex-col items-center justify-center py-8 px-4">
+      <Typography variant="body2" color="text.secondary" align="center">
+        No notifications to show.
+      </Typography>
+    </Box>
+  );
+}
+
+function NotificationSkeleton() {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <ListItem key={i} className="px-4 py-2">
+          <ListItemAvatar>
+            <Skeleton variant="circular" width={40} height={40} className="me-3" />
+          </ListItemAvatar>
+          <Box className="flex flex-col gap-1 w-full">
+            <Skeleton variant="text" width="60%" height={20} />
+            <Skeleton variant="text" width="90%" height={16} />
+            <Skeleton variant="text" width="30%" height={14} />
+          </Box>
+        </ListItem>
+      ))}
     </>
   );
 }
