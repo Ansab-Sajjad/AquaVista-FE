@@ -3,12 +3,14 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ArrowBack, PushPin } from "@mui/icons-material";
+import { ArrowBack, PushPin, Settings } from "@mui/icons-material";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   FormControl,
   IconButton,
   InputLabel,
@@ -19,28 +21,23 @@ import {
   Typography,
 } from "@mui/material";
 
+import AvaChart from "@/components/ask-ava/ava-chart";
+import AvaTable from "@/components/ask-ava/ava-table";
+import StartupQuestionsDialog from "@/components/ask-ava/startup-questions-dialog";
+import type { AvaMessage, AvaUsage, StartupQuestion } from "@/components/ask-ava/types";
 import { AquaVista } from "@/lib/AquaVista";
 import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  type?: "narrative" | "table" | "chart";
-  title?: string;
-  isPinned?: boolean;
-};
-
 type ChatRecord = {
   _id: string;
   title: string;
-  messages: (Omit<Message, "id"> & { createdAt?: string; _id?: string })[];
+  messages: (Omit<AvaMessage, "id"> & { createdAt?: string; _id?: string })[];
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-const WELCOME_MESSAGE: Message = {
+const WELCOME_MESSAGE: AvaMessage = {
   id: "welcome",
   role: "assistant",
   content: `Hi, I'm ${AquaVista.assistantName} — your ${AquaVista.assistantFullName}. Ask me anything about this project's uploaded data and municipal finance. I'll stay grounded in the data and tell you when I don't know.`,
@@ -52,19 +49,24 @@ export default function AskAvaPage() {
   const searchParams = useSearchParams();
   const projectId = (params?.id as string) || "";
   const requestedUserId = searchParams.get("userId");
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<AvaMessage[]>([WELCOME_MESSAGE]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [chatTitle, setChatTitle] = useState("New conversation");
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pinnedChatId, setPinnedChatId] = useState<string | null>(null);
+  const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<"gemini" | "groq" | "ollama">("gemini");
+  const [usage, setUsage] = useState<AvaUsage | null>(null);
+  const [startupQuestions, setStartupQuestions] = useState<StartupQuestion[]>([]);
+  const [startupDialogOpen, setStartupDialogOpen] = useState(false);
+  const [viewedUserName, setViewedUserName] = useState<string | null>(null);
 
   const token = getStoredAuthToken();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isAdminViewingUser = Boolean(requestedUserId) && isAdminUser();
+  const isAdmin = isAdminUser();
+  const isAdminViewingUser = Boolean(requestedUserId) && isAdmin;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,48 +76,55 @@ export default function AskAvaPage() {
     scrollToBottom();
   }, [messages]);
 
-  const loadChat = useCallback(async (selectedChatId: string, title: string) => {
+  const fetchUsage = useCallback(async () => {
     if (!projectId || !token) return;
-
-    setIsLoading(true);
-    setError(null);
-
     try {
-      const chatRes = await fetch(
-        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/usage`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setUsage(await res.json());
+    } catch {
+      // Usage is non-critical; ignore
+    }
+  }, [projectId, token]);
 
-      if (!chatRes.ok) {
-        throw new Error("Failed to load Ask AVA conversation");
+  const fetchStartupQuestions = useCallback(async () => {
+    if (!projectId || !token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setStartupQuestions(await res.json());
+    } catch {
+      // Non-critical; ignore
+    }
+  }, [projectId, token]);
+
+  const fetchViewedUser = useCallback(async () => {
+    if (!requestedUserId || !token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/projects/admin/users/${encodeURIComponent(requestedUserId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setViewedUserName(data.name || data.email || "this user");
       }
+    } catch {
+      // Non-critical; ignore
+    }
+  }, [requestedUserId, token]);
 
-      const chat = (await chatRes.json()) as ChatRecord;
-      setChatId(selectedChatId);
-      setChatTitle(title);
+  const loadChat = useCallback(
+    async (selectedChatId: string, title: string) => {
+      if (!projectId || !token) return;
 
-      const persistedMessages = chat.messages.map((message, index) => ({
-        id: message._id || `${message.role}-${index}-${message.createdAt?.toString() ?? Date.now().toString()}`,
-        role: message.role,
-        content: message.content,
-        type: message.type,
-        title: message.title,
-      }));
+      setIsLoading(true);
+      setError(null);
 
-      if (persistedMessages.length > 0) {
-        setMessages(persistedMessages);
-      } else {
-        setMessages([WELCOME_MESSAGE]);
-      }
-
-      // Fetch pinned chat status
       try {
-        const pinnedRes = await fetch(
-          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}/pinned-messages`,
+        const chatRes = await fetch(
+          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -123,21 +132,58 @@ export default function AskAvaPage() {
           },
         );
 
-        if (pinnedRes.ok) {
-          const pinnedData = await pinnedRes.json();
-          setPinnedChatId(pinnedData.pinnedMessageIds?.[0] || null);
+        if (!chatRes.ok) {
+          throw new Error("Failed to load Ask AVA conversation");
+        }
+
+        const chat = (await chatRes.json()) as ChatRecord;
+        setChatId(selectedChatId);
+        setChatTitle(title);
+
+        const persistedMessages: AvaMessage[] = chat.messages.map((message, index) => ({
+          id: message._id || `${message.role}-${index}-${message.createdAt?.toString() ?? Date.now().toString()}`,
+          role: message.role,
+          content: message.content,
+          type: message.type,
+          title: message.title,
+          tableData: message.tableData,
+          chartData: message.chartData,
+        }));
+
+        if (persistedMessages.length > 0) {
+          setMessages(persistedMessages);
+        } else {
+          setMessages([WELCOME_MESSAGE]);
+        }
+
+        // Fetch pinned message ids for this chat
+        try {
+          const pinnedRes = await fetch(
+            `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}/pinned-messages`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          if (pinnedRes.ok) {
+            const pinnedData = await pinnedRes.json();
+            setPinnedMessageIds(new Set((pinnedData.pinnedMessageIds || []) as string[]));
+          }
+        } catch (err) {
+          console.error("Failed to load pinned chat status:", err);
+          // Continue without pinned state
         }
       } catch (err) {
-        console.error("Failed to load pinned chat status:", err);
-        // Continue without pinned state
+        console.error(err);
+        setError("Unable to load Ask AVA conversation. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-      setError("Unable to load Ask AVA conversation. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId, requestedUserId, token]);
+    },
+    [projectId, requestedUserId, token],
+  );
 
   useEffect(() => {
     async function fetchChat() {
@@ -150,18 +196,21 @@ export default function AskAvaPage() {
       setError(null);
 
       try {
-        const chatsRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const chatsRes = await fetch(
+          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
 
         if (!chatsRes.ok) {
           throw new Error("Failed to load chat list");
         }
 
         const chats = (await chatsRes.json()) as any[];
-        
+
         let selectedChat = chats[0];
 
         if (!selectedChat) {
@@ -205,15 +254,28 @@ export default function AskAvaPage() {
     fetchChat();
   }, [projectId, isAdminViewingUser, requestedUserId, token, loadChat]);
 
-  const sendMessage = async () => {
+  // Load usage + startup questions + viewed user name on mount
+  useEffect(() => {
+    if (!isAdminViewingUser) {
+      void fetchUsage();
+      void fetchStartupQuestions();
+    } else {
+      void fetchViewedUser();
+    }
+  }, [fetchUsage, fetchStartupQuestions, fetchViewedUser, isAdminViewingUser]);
+
+  const sendMessage = async (overrideContent?: string) => {
     if (isAdminViewingUser) {
       setError("This view is read-only. You can review the selected user's Ask AVA history here.");
       return;
     }
 
-    if (!input.trim() || isThinking || !projectId || !token || !chatId) return;
+    if (usage?.limitReached) return;
 
-    const userMessage: Message = { id: String(Date.now()), role: "user", content: input };
+    const contentToSend = (overrideContent ?? input).trim();
+    if (!contentToSend || isThinking || !projectId || !token || !chatId) return;
+
+    const userMessage: AvaMessage = { id: String(Date.now()), role: "user", content: contentToSend };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsThinking(true);
@@ -228,17 +290,20 @@ export default function AskAvaPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ content: userMessage.content, provider: selectedProvider }),
+          body: JSON.stringify({ content: contentToSend, provider: selectedProvider }),
         },
       );
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         const message = payload?.message || "AVA is temporarily unavailable. Please try again.";
+        if (response.status === 429 && payload?.usage) {
+          setUsage(payload.usage);
+        }
         throw new Error(message);
       }
 
-      const payload = (await response.json()) as { messages: Array<Message & { _id?: string }> };
+      const payload = (await response.json()) as { messages: (AvaMessage & { _id?: string })[]; usage?: AvaUsage };
       const assistantMessages = payload.messages.filter((item) => item.role === "assistant");
       setMessages((prev) => [
         ...prev,
@@ -248,8 +313,11 @@ export default function AskAvaPage() {
           content: item.content,
           type: item.type,
           title: item.title,
+          tableData: item.tableData,
+          chartData: item.chartData,
         })),
       ]);
+      if (payload.usage) setUsage(payload.usage);
     } catch (err) {
       console.error(err);
       setError((err as Error).message || "AVA is temporarily unavailable. Please try again.");
@@ -258,13 +326,12 @@ export default function AskAvaPage() {
     }
   };
 
-  const handlePin = async (message: Message) => {
+  const handlePin = async (message: AvaMessage) => {
     if (!projectId || !token || !chatId) return;
 
-    const isCurrentlyPinned = pinnedChatId === chatId;
+    const isCurrentlyPinned = pinnedMessageIds.has(message.id);
 
     if (isCurrentlyPinned) {
-      // Unpin the chat
       try {
         const response = await fetch(
           `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/unpin`,
@@ -278,12 +345,15 @@ export default function AskAvaPage() {
         if (!response.ok) {
           throw new Error("Failed to unpin message");
         }
-        setPinnedChatId(null);
+        setPinnedMessageIds((prev) => {
+          const next = new Set(prev);
+          next.delete(message.id);
+          return next;
+        });
       } catch (err) {
         console.error(err);
       }
     } else {
-      // Pin the chat (using the message content)
       try {
         const response = await fetch(
           `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/pin`,
@@ -297,25 +367,44 @@ export default function AskAvaPage() {
               content: message.content,
               type: message.type || "narrative",
               title: message.title || "AquaVista Assistant",
+              tableData: message.tableData,
+              chartData: message.chartData,
             }),
           },
         );
         if (!response.ok) {
           throw new Error("Failed to pin message");
         }
-        setPinnedChatId(chatId);
+        setPinnedMessageIds((prev) => new Set(prev).add(message.id));
       } catch (err) {
         console.error(err);
       }
     }
   };
 
+  const handleSaveStartupQuestions = async (questions: StartupQuestion[]) => {
+    if (!projectId || !token) return;
+    const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ questions }),
+    });
+    if (!res.ok) throw new Error("Failed to save startup questions");
+    const saved = await res.json();
+    setStartupQuestions(saved);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      void sendMessage();
     }
   };
+
+  const inputDisabled = isLoading || !token || !chatId || isAdminViewingUser || Boolean(usage?.limitReached);
 
   return (
     <Box className="flex w-full flex-col gap-4">
@@ -328,45 +417,101 @@ export default function AskAvaPage() {
             {chatTitle}
           </Typography>
         </Box>
-        {isAdminViewingUser && (
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => router.push(`/users/${requestedUserId}`)}
-            variant="outlined"
-            className="w-fit"
-            sx={{
-              borderColor: "divider",
-              color: "text.primary",
-              px: 2,
-              py: 0.8,
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 600,
-              "&:hover": {
-                borderColor: "primary.main",
-                color: "primary.main",
-                backgroundColor: "action.hover",
-              },
-            }}
-          >
-            Back
-          </Button>
-        )}
+        <Box className="flex items-center gap-2">
+          {isAdmin && !isAdminViewingUser && (
+            <Button
+              startIcon={<Settings />}
+              onClick={() => setStartupDialogOpen(true)}
+              variant="outlined"
+              className="w-fit"
+              sx={{
+                borderColor: "divider",
+                color: "text.primary",
+                px: 2,
+                py: 0.8,
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 600,
+                "&:hover": {
+                  borderColor: "primary.main",
+                  color: "primary.main",
+                  backgroundColor: "action.hover",
+                },
+              }}
+            >
+              Startup questions
+            </Button>
+          )}
+          {isAdminViewingUser && (
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={() => router.push(`/projects/${projectId}/users`)}
+              variant="outlined"
+              className="w-fit"
+              sx={{
+                borderColor: "divider",
+                color: "text.primary",
+                px: 2,
+                py: 0.8,
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 600,
+                "&:hover": {
+                  borderColor: "primary.main",
+                  color: "primary.main",
+                  backgroundColor: "action.hover",
+                },
+              }}
+            >
+              Back to Users
+            </Button>
+          )}
+        </Box>
       </Box>
 
-      <Card className={cn("bg-background-paper shadow-darker-xs flex flex-col rounded-3xl", isAdminViewingUser ? "h-[calc(100vh-12rem)]" : "h-[calc(100vh-22rem)]")}>
+      <Card
+        className={cn(
+          "bg-background-paper shadow-darker-xs flex flex-col rounded-3xl",
+          isAdminViewingUser ? "h-[calc(100vh-12rem)]" : "h-[calc(100vh-22rem)]",
+        )}
+      >
         <CardContent className="flex h-full flex-col gap-4 p-5">
           {isAdminViewingUser ? (
             <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
-              Viewing Ask AVA conversations for this project user. This panel is read-only.
+              Viewing chats for {viewedUserName || "this user"}. This panel is read-only.
             </Box>
           ) : (
             <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
               <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
-              {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks for
-              clarification when the data is incomplete.
+              {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks
+              for clarification when the data is incomplete.
             </Box>
           )}
+
+          {/* Usage indicator */}
+          {!isAdminViewingUser && usage ? (
+            <Box className="flex flex-wrap items-center gap-2">
+              <Chip
+                size="small"
+                color={usage.limitReached ? "error" : "default"}
+                variant="outlined"
+                label={`Project usage: ${usage.used} / ${usage.limit} questions today`}
+              />
+              <Chip
+                size="small"
+                color={usage.limitReached ? "error" : "primary"}
+                variant="outlined"
+                label={`Ask AVA usage remaining today: ${usage.remaining} questions`}
+              />
+            </Box>
+          ) : null}
+
+          {/* Usage limit reached banner */}
+          {!isAdminViewingUser && usage?.limitReached ? (
+            <Alert severity="warning">
+              This project has reached its Ask AVA usage limit for today. Please contact your Admin or try again later.
+            </Alert>
+          ) : null}
 
           <Box className="mb-4 flex flex-wrap items-center gap-4">
             <Box className="w-full max-w-sm">
@@ -387,6 +532,23 @@ export default function AskAvaPage() {
               </FormControl>
             </Box>
           </Box>
+
+          {/* Startup questions */}
+          {!isAdminViewingUser && startupQuestions.length > 0 ? (
+            <Box className="flex flex-wrap gap-2">
+              {startupQuestions.map((question, index) => (
+                <Chip
+                  key={question._id || index}
+                  label={question.text}
+                  variant="outlined"
+                  color="primary"
+                  clickable
+                  onClick={() => void sendMessage(question.text)}
+                  disabled={isThinking || inputDisabled}
+                />
+              ))}
+            </Box>
+          ) : null}
 
           <Box className="flex-1 space-y-4 overflow-y-auto pr-2">
             {isLoading ? (
@@ -419,30 +581,43 @@ export default function AskAvaPage() {
                       <Typography variant="caption" className="text-primary font-semibold">
                         {message.title || "AquaVista Assistant"}
                       </Typography>
-                      {message.id !== "welcome" && (
+                      {message.id !== "welcome" && !isAdminViewingUser && (
                         <IconButton
                           size="small"
                           className="h-6 w-6"
                           onClick={() => handlePin(message)}
-                          title={pinnedChatId === chatId ? "Unpin from Dashboard" : "Pin to Dashboard"}
+                          title={pinnedMessageIds.has(message.id) ? "Unpin from Dashboard" : "Pin to Dashboard"}
                         >
                           <PushPin
-                            className={pinnedChatId === chatId ? "text-primary" : "text-text-secondary"}
+                            className={pinnedMessageIds.has(message.id) ? "text-primary" : "text-text-secondary"}
                             fontSize="small"
                           />
                         </IconButton>
                       )}
                     </Box>
                   )}
-                  <Typography
-                    variant="body2"
-                    className={cn(
-                      "leading-relaxed whitespace-pre-wrap",
-                      message.role === "user" ? "text-white" : "text-text-primary",
-                    )}
-                  >
-                    {message.content}
-                  </Typography>
+                  {message.content ? (
+                    <Typography
+                      variant="body2"
+                      className={cn(
+                        "leading-relaxed whitespace-pre-wrap",
+                        message.role === "user" ? "text-white" : "text-text-primary",
+                      )}
+                    >
+                      {message.content}
+                    </Typography>
+                  ) : null}
+
+                  {message.role === "assistant" &&
+                  message.type === "table" &&
+                  message.tableData &&
+                  (Array.isArray(message.tableData.columns) || Array.isArray(message.tableData.rows)) ? (
+                    <AvaTable data={message.tableData} />
+                  ) : null}
+
+                  {message.role === "assistant" && message.type === "chart" && message.chartData ? (
+                    <AvaChart data={message.chartData} />
+                  ) : null}
                 </Box>
               </Box>
             ))}
@@ -465,14 +640,26 @@ export default function AskAvaPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask AVA about revenue, expenses, customer classes, rates..."
+              placeholder={
+                usage?.limitReached
+                  ? "Ask AVA usage limit reached for today"
+                  : "Ask AVA about revenue, expenses, customer classes, rates..."
+              }
               slotProps={{ input: { className: "rounded-2xl" } }}
-              disabled={isLoading || !token || !chatId || isAdminViewingUser}
+              disabled={inputDisabled}
             />
             <Button
               variant="contained"
-              onClick={sendMessage}
-              disabled={!input.trim() || isThinking || isLoading || !token || !chatId || isAdminViewingUser}
+              onClick={() => void sendMessage()}
+              disabled={
+                !input.trim() ||
+                isThinking ||
+                isLoading ||
+                !token ||
+                !chatId ||
+                isAdminViewingUser ||
+                Boolean(usage?.limitReached)
+              }
               className="h-14 px-6"
             >
               Send
@@ -480,6 +667,15 @@ export default function AskAvaPage() {
           </Box>
         </CardContent>
       </Card>
+
+      {isAdmin ? (
+        <StartupQuestionsDialog
+          open={startupDialogOpen}
+          questions={startupQuestions}
+          onClose={() => setStartupDialogOpen(false)}
+          onSave={handleSaveStartupQuestions}
+        />
+      ) : null}
     </Box>
   );
 }
