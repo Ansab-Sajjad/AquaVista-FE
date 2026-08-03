@@ -25,12 +25,12 @@ import { DEFAULTS } from "@/config";
 import { THEME_OPTIONS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
+import { useGitHubAuth } from "@/hooks/use-github-auth";
 import { setAuthCookies } from "@/lib/auth";
 import { useThemeContext } from "@/theme/theme-provider";
 import { useRouter } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "";
 
 const validationSchema = yup.object({
   name: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
@@ -98,11 +98,31 @@ export default function Page() {
     onError: () => setAuthError("Google sign-in was cancelled or failed."),
   });
 
-  // GitHub OAuth handler — redirects to sign-in, which handles the callback
-  const handleGitHubSignIn = () => {
-    const redirectUri = window.location.origin + "/auth/sign-in";
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`;
-    window.location.href = githubAuthUrl;
+  // GitHub OAuth handler — opens a small popup window (like Google sign-in).
+  // The popup completes verification, posts the code back here, and closes itself.
+  const signInWithGitHub = useGitHubAuth();
+  const handleGitHubSignIn = async () => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const code = await signInWithGitHub();
+      const response = await fetch(`${API_BASE_URL}/api/auth/github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.token || !data.user) {
+        throw new Error(data?.message || "GitHub sign-in failed.");
+      }
+      setAuthCookies(data.token, data.user);
+      setTheme(THEME_OPTIONS.BLUE);
+      router.push(DEFAULTS.appRoot);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "GitHub sign-in failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formik = useFormik({

@@ -32,6 +32,7 @@ import { THEME_OPTIONS } from "@/constants";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import { useGitHubAuth } from "@/hooks/use-github-auth";
 import { setAuthCookies } from "@/lib/auth";
 import { useThemeContext } from "@/theme/theme-provider";
 
@@ -41,7 +42,6 @@ const validationSchema = yup.object({
 });
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "";
 
 const MOCK_CREDENTIALS = {
   email: "admin@Aquavista.dev",
@@ -104,43 +104,33 @@ export default function Page() {
     }
   }
 
-  // GitHub OAuth handler
-  const handleGitHubSignIn = () => {
-    const redirectUri = window.location.origin + "/auth/sign-in";
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`;
-    window.location.href = githubAuthUrl;
-  };
-
-  // Handle GitHub OAuth callback code in URL
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-    if (code) {
-      setAuthError(null);
-      setIsSubmitting(true);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      fetch(`${API_BASE_URL}/api/auth/github`, {
+  // GitHub OAuth handler — opens a small popup window (like Google sign-in).
+  // The popup completes verification, posts the code back here, and closes itself.
+  const signInWithGitHub = useGitHubAuth();
+  const handleGitHubSignIn = async () => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const code = await signInWithGitHub();
+      const response = await fetch(`${API_BASE_URL}/api/auth/github`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.token && data.user) {
-            setAuthCookies(data.token, data.user);
-            const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
-            setTheme(roleTheme);
-            router.push(DEFAULTS.appRoot);
-          } else {
-            throw new Error(data?.message || "GitHub sign-in failed.");
-          }
-        })
-        .catch((error) => {
-          setAuthError(error instanceof Error ? error.message : "GitHub sign-in failed.");
-          setIsSubmitting(false);
-        });
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.token || !data.user) {
+        throw new Error(data?.message || "GitHub sign-in failed.");
+      }
+      setAuthCookies(data.token, data.user);
+      const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
+      setTheme(roleTheme);
+      router.push(DEFAULTS.appRoot);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "GitHub sign-in failed.");
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [router, setTheme]);
+  };
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
