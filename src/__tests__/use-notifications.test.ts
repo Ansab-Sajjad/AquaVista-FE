@@ -10,6 +10,7 @@ describe("Property 11: Unread badge count matches isRead state", () => {
       id: fc.string({ minLength: 1 }),
       type: fc.constantFrom("system", "user") as fc.ConstantArbitrary<"system" | "user">,
       category: fc.constantFrom(
+        "file_uploaded",
         "file_upload_complete",
         "file_upload_failed",
         "member_added",

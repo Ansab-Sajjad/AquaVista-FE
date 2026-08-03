@@ -2,6 +2,14 @@ import { MenuItem } from "@/types";
 
 export const leftMenuItems: MenuItem[] = [
   {
+    id: "overview",
+    icon: "NiChartPie",
+    label: "menu-overview",
+    description: "Aggregated statistics across all projects",
+    color: "text-primary",
+    href: "/overview",
+  },
+  {
     id: "projects",
     icon: "NiBuilding",
     label: "menu-projects",

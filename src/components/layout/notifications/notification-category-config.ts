@@ -8,6 +8,11 @@ export interface CategoryConfig {
 }
 
 const CATEGORY_CONFIG: Record<NotificationCategory, CategoryConfig> = {
+  file_uploaded: {
+    icon: "NiUploadCloud",
+    colorClass: "text-info",
+    backgroundClass: "bg-info-light/10",
+  },
   file_upload_complete: {
     icon: "NiCheckFull",
     colorClass: "text-success",

@@ -5,6 +5,7 @@ import { getCategoryConfig } from "@/components/layout/notifications/notificatio
 import type { NotificationCategory } from "@/hooks/use-notifications";
 
 const ALL_CATEGORIES: NotificationCategory[] = [
+  "file_uploaded",
   "file_upload_complete",
   "file_upload_failed",
   "member_added",
