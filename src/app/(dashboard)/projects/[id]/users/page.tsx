@@ -268,8 +268,8 @@ export default function UsersPage() {
 
   return (
     <Box className="flex w-full flex-col gap-6">
-      <Box className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Box>
+      <Box className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between animate-in fade-in slide-in-from-top-2 duration-500">
+        <Box className="space-y-1">
           <Typography variant="h4" component="h2">
             Users
           </Typography>
@@ -277,18 +277,22 @@ export default function UsersPage() {
             Manage who can access this project.
           </Typography>
         </Box>
-        <Button variant="contained" onClick={() => setOpen(true)}>
+        <Button
+          variant="contained"
+          onClick={() => setOpen(true)}
+          className="transition-transform duration-200 hover:scale-105"
+        >
           Invite User
         </Button>
       </Box>
 
       {error && (
-        <Alert severity="error" className="bg-background-paper/70">
+        <Alert severity="error" className="bg-background-paper/70 animate-in fade-in slide-in-from-top-2 duration-300">
           {error}
         </Alert>
       )}
 
-      <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
+      <Card className="bg-background-paper shadow-darker-xs rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
         <CardContent className="p-0">
           {loading ? (
             <Box className="flex items-center justify-center py-16">
@@ -299,31 +303,36 @@ export default function UsersPage() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Actions</TableCell>
+                    <TableCell className="font-semibold">Name</TableCell>
+                    <TableCell className="font-semibold">Email</TableCell>
+                    <TableCell className="font-semibold">Role</TableCell>
+                    <TableCell className="font-semibold">Status</TableCell>
+                    <TableCell className="font-semibold">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="left" className="text-text-secondary py-8">
+                      <TableCell colSpan={5} align="left" className="text-text-secondary py-12 text-center">
                         No users have been added to this project yet.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    users.map((user) => (
-                      <TableRow key={user.id}>
+                    users.map((user, index) => (
+                      <TableRow
+                        key={user.id}
+                        className="transition-colors duration-200 hover:bg-grey-25 animate-in fade-in slide-in-from-left-2"
+                        style={{ animationDelay: `${index * 50}ms`, animationDuration: "400ms" }}
+                      >
                         <TableCell className="text-text-primary font-semibold">{user.name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
+                        <TableCell className="text-text-secondary">{user.email}</TableCell>
                         <TableCell>
                           <Chip
                             label={user.role}
                             size="small"
                             color={user.role === "Super Admin" ? "primary" : "default"}
                             variant={user.role === "Super Admin" ? "filled" : "outlined"}
+                            className="transition-transform duration-200 hover:scale-105"
                           />
                         </TableCell>
                         <TableCell>
@@ -331,6 +340,7 @@ export default function UsersPage() {
                             label={user.status}
                             size="small"
                             color={user.status === "Active" ? "success" : "warning"}
+                            className="transition-transform duration-200 hover:scale-105"
                           />
                         </TableCell>
                         <TableCell>
@@ -338,6 +348,7 @@ export default function UsersPage() {
                             size="small"
                             aria-label={`Actions for ${user.name}`}
                             onClick={(e) => setMenuAnchor({ el: e.currentTarget, userId: user.id })}
+                            className="transition-transform duration-200 hover:scale-110"
                           >
                             <MoreVert fontSize="small" />
                           </IconButton>

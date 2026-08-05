@@ -183,69 +183,90 @@ export default function ProjectsPage() {
   return (
     <Box className="flex w-full flex-col gap-6">
       <Box className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Box>
-          <Typography variant="h2" component="h1">
+        <Box className="space-y-1">
+          <Typography variant="h2" component="h1" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             Projects
           </Typography>
-          <Typography variant="body1" className="text-text-secondary">
+          <Typography variant="body1" className="text-text-secondary animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75">
             Select a municipal rate study project to open its workspace.
           </Typography>
         </Box>
         {isAdmin && (
-          <Button variant="contained" onClick={() => setOpen(true)}>
+          <Button
+            variant="contained"
+            onClick={() => setOpen(true)}
+            className="animate-in fade-in slide-in-from-right duration-500 delay-150"
+          >
             Create Project
           </Button>
         )}
       </Box>
 
-      <StatsGrid stats={statCards} loading={statsLoading} error={statsError} title="Overview" />
+      <Box className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
+        <StatsGrid stats={statCards} loading={statsLoading} error={statsError} title="Overview" />
+      </Box>
 
       {error && (
-        <Alert severity="error" className="bg-background-paper/70">
+        <Alert severity="error" className="bg-background-paper/70 animate-in fade-in slide-in-from-top-2 duration-300">
           {error}
         </Alert>
       )}
 
       {loading ? (
-        <Box className="bg-background-paper shadow-darker-xs flex items-center justify-center rounded-4xl p-12">
+        <Box className="bg-background-paper shadow-darker-xs flex items-center justify-center rounded-4xl p-12 animate-in fade-in duration-300">
           <CircularProgress size={28} />
         </Box>
       ) : projects.length === 0 ? (
-        <Box className="bg-background-paper shadow-darker-xs flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center">
+        <Box className="bg-background-paper shadow-darker-xs flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center animate-in fade-in zoom-in-95 duration-500">
           <Typography variant="h4">No projects yet</Typography>
-          <Typography variant="body1" className="text-text-secondary">
+          <Typography variant="body1" className="text-text-secondary max-w-md">
             {isAdmin ? "Create a project to start a municipal rate study." : "You have not been added to any projects yet. Contact your AquaVista consultant."}
           </Typography>
           {isAdmin && (
-            <Button variant="contained" onClick={() => setOpen(true)}>
+            <Button variant="contained" onClick={() => setOpen(true)} className="mt-2">
               Create Project
             </Button>
           )}
         </Box>
       ) : (
         <Grid container spacing={3}>
-          {projects.map((project) => (
-            <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
+          {projects.map((project, index) => (
+            <Grid
+              key={project.id}
+              size={{ xs: 12, md: 6, lg: 4 }}
+              className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+              style={{ animationDelay: `${150 + index * 75}ms` }}
+            >
               <Link
                 href={`/projects/${project.id}/overview`}
                 className="block h-full no-underline"
               >
-                <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-shadow hover:shadow-lg">
+                <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1">
                   <CardContent className="flex h-full flex-col gap-3 p-6">
-                    <Typography variant="h5" component="h3" className="text-text-primary">
+                    <Typography variant="h5" component="h3" className="text-text-primary transition-colors duration-200">
                       {project.name}
                     </Typography>
-                    <Typography variant="body2" className="text-text-secondary">
+                    <Typography variant="body2" className="text-text-secondary line-clamp-2 min-h-[2.5rem]">
                       {project.description || "No description provided."}
                     </Typography>
                     <Box className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-                      <Chip label={project.municipality} size="small" color="primary" />
-                      <Chip label={`${project.teamCount} members`} size="small" variant="outlined" />
+                      <Chip
+                        label={project.municipality}
+                        size="small"
+                        color="primary"
+                        className="transition-transform duration-200 hover:scale-105"
+                      />
+                      <Chip
+                        label={`${project.teamCount} member${project.teamCount !== 1 ? 's' : ''}`}
+                        size="small"
+                        variant="outlined"
+                        className="transition-transform duration-200 hover:scale-105"
+                      />
                       <Chip
                         label={`Updated ${formatDate(project.lastUpdated)}`}
                         size="small"
                         variant="outlined"
-                        className="text-text-secondary"
+                        className="text-text-secondary transition-transform duration-200 hover:scale-105"
                       />
                     </Box>
                   </CardContent>
@@ -256,39 +277,63 @@ export default function ProjectsPage() {
         </Grid>
       )}
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Project</DialogTitle>
-        <DialogContent className="flex flex-col gap-4">
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          backdrop: {
+            className: "backdrop-blur-sm",
+            timeout: 300
+          }
+        }}
+        className="animate-in fade-in zoom-in-95 duration-200"
+      >
+        <DialogTitle className="pb-2">Create Project</DialogTitle>
+        <DialogContent className="flex flex-col gap-5 pt-5">
           <FormControl className="outlined" variant="standard" size="small">
-            <FormLabel>Project name</FormLabel>
+            <FormLabel className="mb-1.5">Project name</FormLabel>
             <Input
               value={newProject.name}
               onChange={(e) => setNewProject((p) => ({ ...p, name: e.target.value }))}
               placeholder="e.g. Town of Strasburg"
+              className="transition-all duration-200 focus-within:scale-[1.01]"
             />
           </FormControl>
           <FormControl className="outlined" variant="standard" size="small">
-            <FormLabel>Municipality name</FormLabel>
+            <FormLabel className="mb-1.5">Municipality name</FormLabel>
             <Input
               value={newProject.municipality}
               onChange={(e) => setNewProject((p) => ({ ...p, municipality: e.target.value }))}
               placeholder="e.g. Strasburg"
+              className="transition-all duration-200 focus-within:scale-[1.01]"
             />
           </FormControl>
           <FormControl className="outlined" variant="standard" size="small">
-            <FormLabel>Description (optional)</FormLabel>
+            <FormLabel className="mb-1.5">Description (optional)</FormLabel>
             <Input
               value={newProject.description}
               onChange={(e) => setNewProject((p) => ({ ...p, description: e.target.value }))}
               placeholder="Brief description of the engagement"
+              className="transition-all duration-200 focus-within:scale-[1.01]"
             />
           </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)} color="grey">
+        <DialogActions className="p-6 pt-4">
+          <Button
+            onClick={() => setOpen(false)}
+            color="grey"
+            className="transition-transform duration-200 hover:scale-105"
+          >
             Cancel
           </Button>
-          <Button variant="contained" onClick={() => void handleCreate()} disabled={creating}>
+          <Button
+            variant="contained"
+            onClick={() => void handleCreate()}
+            disabled={creating}
+            className="transition-transform duration-200 hover:scale-105 disabled:scale-100"
+          >
             {creating ? "Creating..." : "Create"}
           </Button>
         </DialogActions>

@@ -408,7 +408,7 @@ export default function AskAvaPage() {
 
   return (
     <Box className="flex w-full flex-col gap-4">
-      <Box className="flex items-center justify-between">
+      <Box className="flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-500">
         <Box>
           <Typography variant="h4" component="h2">
             Ask {AquaVista.assistantName}
@@ -423,7 +423,7 @@ export default function AskAvaPage() {
               startIcon={<Settings />}
               onClick={() => setStartupDialogOpen(true)}
               variant="outlined"
-              className="w-fit"
+              className="w-fit transition-transform duration-200 hover:scale-105"
               sx={{
                 borderColor: "divider",
                 color: "text.primary",
@@ -447,7 +447,7 @@ export default function AskAvaPage() {
               startIcon={<ArrowBack />}
               onClick={() => router.push(requestedUserId ? `/users/${requestedUserId}` : `/projects/${projectId}/users`)}
               variant="outlined"
-              className="w-fit"
+              className="w-fit transition-transform duration-200 hover:scale-105"
               sx={{
                 borderColor: "divider",
                 color: "text.primary",
@@ -471,7 +471,7 @@ export default function AskAvaPage() {
 
       <Card
         className={cn(
-          "bg-background-paper shadow-darker-xs flex flex-col rounded-3xl",
+          "bg-background-paper shadow-darker-xs flex flex-col rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100",
           isAdminViewingUser ? "h-[calc(100vh-12rem)]" : "h-[calc(100vh-22rem)]",
         )}
       >
@@ -535,7 +535,7 @@ export default function AskAvaPage() {
 
           {/* Startup questions */}
           {!isAdminViewingUser && startupQuestions.length > 0 ? (
-            <Box className="flex flex-wrap gap-2">
+            <Box className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
               {startupQuestions.map((question, index) => (
                 <Chip
                   key={question._id || index}
@@ -545,6 +545,8 @@ export default function AskAvaPage() {
                   clickable
                   onClick={() => void sendMessage(question.text)}
                   disabled={isThinking || inputDisabled}
+                  className="transition-all duration-200 hover:scale-105 hover:shadow-sm animate-in fade-in zoom-in-95"
+                  style={{ animationDelay: `${200 + index * 50}ms`, animationDuration: "300ms" }}
                 />
               ))}
             </Box>
@@ -552,28 +554,32 @@ export default function AskAvaPage() {
 
           <Box className="flex-1 space-y-4 overflow-y-auto pr-2">
             {isLoading ? (
-              <Box className="bg-grey-50 text-text-secondary rounded-3xl p-6 text-center">
+              <Box className="bg-grey-50 text-text-secondary rounded-3xl p-6 text-center animate-in fade-in duration-300">
                 <Typography>Loading Ask AVA conversation...</Typography>
               </Box>
             ) : null}
 
             {error ? (
-              <Box className="bg-error/10 text-error rounded-3xl p-4">
+              <Box className="bg-error/10 text-error rounded-3xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                 <Typography>{error}</Typography>
               </Box>
             ) : null}
 
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <Box
                 key={message.id}
-                className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}
+                className={cn(
+                  "flex w-full animate-in fade-in",
+                  message.role === "user" ? "justify-end slide-in-from-right" : "justify-start slide-in-from-left-2"
+                )}
+                style={{ animationDelay: `${index * 50}ms`, animationDuration: "400ms" }}
               >
                 <Box
                   className={cn(
-                    "max-w-[80%] rounded-3xl px-5 py-3",
+                    "max-w-[80%] rounded-3xl px-5 py-3 transition-all duration-200",
                     message.role === "user"
-                      ? "bg-primary rounded-br-sm text-white"
-                      : "bg-grey-50 text-text-primary rounded-bl-sm",
+                      ? "bg-primary rounded-br-sm text-white hover:shadow-md"
+                      : "bg-grey-50 text-text-primary rounded-bl-sm hover:bg-grey-100",
                   )}
                 >
                   {message.role === "assistant" && (
@@ -584,12 +590,15 @@ export default function AskAvaPage() {
                       {message.id !== "welcome" && !isAdminViewingUser && (
                         <IconButton
                           size="small"
-                          className="h-6 w-6"
+                          className="h-6 w-6 transition-transform duration-200 hover:scale-110"
                           onClick={() => handlePin(message)}
                           title={pinnedMessageIds.has(message.id) ? "Unpin from Dashboard" : "Pin to Dashboard"}
                         >
                           <PushPin
-                            className={pinnedMessageIds.has(message.id) ? "text-primary" : "text-text-secondary"}
+                            className={cn(
+                              "transition-colors duration-200",
+                              pinnedMessageIds.has(message.id) ? "text-primary" : "text-text-secondary"
+                            )}
                             fontSize="small"
                           />
                         </IconButton>
@@ -612,18 +621,22 @@ export default function AskAvaPage() {
                   message.type === "table" &&
                   message.tableData &&
                   (Array.isArray(message.tableData.columns) || Array.isArray(message.tableData.rows)) ? (
-                    <AvaTable data={message.tableData} />
+                    <Box className="mt-2 overflow-hidden rounded-xl">
+                      <AvaTable data={message.tableData} />
+                    </Box>
                   ) : null}
 
                   {message.role === "assistant" && message.type === "chart" && message.chartData ? (
-                    <AvaChart data={message.chartData} />
+                    <Box className="mt-2 overflow-hidden rounded-xl">
+                      <AvaChart data={message.chartData} />
+                    </Box>
                   ) : null}
                 </Box>
               </Box>
             ))}
 
             {isThinking && (
-              <Box className="flex w-full justify-start">
+              <Box className="flex w-full justify-start animate-in fade-in slide-in-from-left-2 duration-300">
                 <Box className="bg-grey-50 text-text-primary rounded-3xl rounded-bl-sm px-5 py-3">
                   <Typography variant="body2">AVA is thinking...</Typography>
                 </Box>
@@ -645,7 +658,7 @@ export default function AskAvaPage() {
                   ? "Ask AVA usage limit reached for today"
                   : "Ask AVA about revenue, expenses, customer classes, rates..."
               }
-              slotProps={{ input: { className: "rounded-2xl" } }}
+              slotProps={{ input: { className: "rounded-2xl transition-all duration-200 focus-within:shadow-md" } }}
               disabled={inputDisabled}
             />
             <Button
@@ -660,7 +673,7 @@ export default function AskAvaPage() {
                 isAdminViewingUser ||
                 Boolean(usage?.limitReached)
               }
-              className="h-14 px-6"
+              className="h-14 px-6 transition-transform duration-200 hover:scale-105 disabled:scale-100"
             >
               Send
             </Button>

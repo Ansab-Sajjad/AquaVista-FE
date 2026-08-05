@@ -28,6 +28,9 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
+/* --------- Animations --------- */
+@import "./animations.css";
+
 /* --------- Theme --------- */
 @import "./theme/common.css";
 @import "./theme/blue.css";

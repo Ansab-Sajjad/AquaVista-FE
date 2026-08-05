@@ -257,7 +257,7 @@ export default function DataPage() {
 
   return (
     <Box className="flex w-full flex-col gap-6">
-      <Box>
+      <Box className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-500">
         <Typography variant="h4" component="h2">
           Data
         </Typography>
@@ -267,24 +267,32 @@ export default function DataPage() {
       </Box>
 
       {error && (
-        <Alert severity="error" onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          onClose={() => setError(null)}
+          className="animate-in fade-in slide-in-from-top-2 duration-300"
+        >
           {error}
         </Alert>
       )}
 
       {successMsg && (
-        <Alert severity="success" onClose={() => setSuccessMsg(null)}>
+        <Alert
+          severity="success"
+          onClose={() => setSuccessMsg(null)}
+          className="animate-in fade-in slide-in-from-top-2 duration-300"
+        >
           {successMsg}
         </Alert>
       )}
 
       {/* Upload Section */}
-      <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
+      <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
         <CardContent className="flex flex-col gap-4 p-5">
           <Typography variant="h6">Upload project data</Typography>
           <Box className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel>File type</FormLabel>
+              <FormLabel className="mb-1.5">File type</FormLabel>
               <Select value={fileType} onChange={(e) => setFileType(e.target.value)}>
                 {DATA_TYPES.map((type) => (
                   <MenuItem key={type} value={type}>
@@ -294,24 +302,32 @@ export default function DataPage() {
               </Select>
             </FormControl>
             <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel>Year</FormLabel>
+              <FormLabel className="mb-1.5">Year</FormLabel>
               <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="YYYY" />
             </FormControl>
           </Box>
 
           <Box
             {...getRootProps()}
-            className="border-grey-100 hover:border-primary flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
+            className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
+              isDragActive
+                ? "border-primary bg-primary/5 scale-[1.01]"
+                : "border-grey-100 hover:border-primary hover:bg-grey-25"
+            }`}
           >
             <input {...getInputProps()} />
             {uploading ? (
-              <Box className="flex flex-col items-center gap-2">
+              <Box className="flex flex-col items-center gap-2 animate-in fade-in duration-300">
                 <CircularProgress size={32} />
                 <Typography variant="body1">Uploading document...</Typography>
               </Box>
             ) : (
               <>
-                <CloudUploadIcon color="action" sx={{ fontSize: 36 }} />
+                <CloudUploadIcon
+                  color="action"
+                  sx={{ fontSize: 36 }}
+                  className={`transition-transform duration-300 ${isDragActive ? "scale-110" : ""}`}
+                />
                 <Typography variant="body1" className={isDragActive ? "text-primary" : "text-text-secondary"}>
                   {isDragActive ? "Drop the file here" : "Drag & drop a CSV, Excel, or PDF file, or click to browse"}
                 </Typography>
@@ -325,7 +341,7 @@ export default function DataPage() {
       </Card>
 
       {/* Uploaded Files Section */}
-      <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
+      <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
         <CardContent className="flex flex-col gap-4 p-5">
           <Typography variant="h6">Uploaded files</Typography>
           {loadingFiles ? (
@@ -338,26 +354,35 @@ export default function DataPage() {
             </Typography>
           ) : (
             <Grid container spacing={2}>
-              {uploads.map((file) => (
+              {uploads.map((file, index) => (
                 <Grid key={file.id} size={{ xs: 12, md: 6 }}>
-                  <Box className="bg-grey-25 flex flex-col gap-2 rounded-2xl p-4">
+                  <Box
+                    className="bg-grey-25 flex h-full flex-col gap-2 rounded-2xl p-4 transition-all duration-300 hover:bg-grey-50 hover:shadow-sm hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2"
+                    style={{ animationDelay: `${200 + index * 60}ms`, animationDuration: "400ms" }}
+                  >
                     <Box className="flex items-center justify-between gap-2">
-                      <Typography variant="body1" className="text-text-primary font-semibold">
+                      <Typography variant="body1" className="text-text-primary font-semibold truncate">
                         {file.name}
                       </Typography>
-                      <Chip label={file.status.charAt(0).toUpperCase() + file.status.slice(1)} size="small" color={statusColor(file.status)} />
+                      <Chip
+                        label={file.status.charAt(0).toUpperCase() + file.status.slice(1)}
+                        size="small"
+                        color={statusColor(file.status)}
+                        className="flex-shrink-0 transition-transform duration-200 hover:scale-105"
+                      />
                     </Box>
                     <Typography variant="body2" className="text-text-secondary">
                       {file.fileType} {file.year ? `• ${file.year}` : ""} • {file.uploadedBy} •{" "}
                       {formatDate(file.uploadedAt)} {file.sizeBytes ? `• ${formatFileSize(file.sizeBytes)}` : ""}
                     </Typography>
-                    <Box className="mt-1 flex gap-2">
+                    <Box className="mt-auto flex items-center gap-2 pt-1">
                       <Button
                         size="small"
                         variant="outlined"
                         color="primary"
                         startIcon={<DownloadIcon />}
                         onClick={() => handleDownloadUploadedFile(file.id, file.name)}
+                        className="transition-transform duration-200 hover:scale-105"
                       >
                         Download
                       </Button>
@@ -366,6 +391,7 @@ export default function DataPage() {
                         color="error"
                         onClick={() => handleDeleteUploadedFile(file.id)}
                         title="Delete file"
+                        className="transition-transform duration-200 hover:scale-110"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -379,7 +405,7 @@ export default function DataPage() {
       </Card>
 
       {/* Baseline Templates Section */}
-      <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
+      <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-200">
         <CardContent className="flex flex-col gap-4 p-5">
           <Typography variant="h6">Baseline templates</Typography>
           {loadingTemplates ? (
@@ -392,13 +418,16 @@ export default function DataPage() {
             </Typography>
           ) : (
             <Grid container spacing={2}>
-              {templates.map((template) => (
+              {templates.map((template, index) => (
                 <Grid key={template.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                  <Box className="bg-grey-25 flex h-full flex-col gap-2 rounded-2xl p-4">
+                  <Box
+                    className="bg-grey-25 flex h-full flex-col gap-2 rounded-2xl p-4 transition-all duration-300 hover:bg-grey-50 hover:shadow-sm hover:-translate-y-0.5 animate-in fade-in zoom-in-95"
+                    style={{ animationDelay: `${250 + index * 60}ms`, animationDuration: "400ms" }}
+                  >
                     <Typography variant="body1" className="text-text-primary font-semibold">
                       {template.name}
                     </Typography>
-                    <Typography variant="body2" className="text-text-secondary">
+                    <Typography variant="body2" className="text-text-secondary flex-1">
                       {template.description}
                     </Typography>
                     <Button
@@ -406,7 +435,7 @@ export default function DataPage() {
                       variant="outlined"
                       color="primary"
                       startIcon={<DownloadIcon />}
-                      className="mt-auto w-fit"
+                      className="mt-auto w-fit transition-transform duration-200 hover:scale-105"
                       onClick={() => handleDownloadTemplate(template.id, template.originalName)}
                     >
                       Download

@@ -65,7 +65,7 @@ export default function ProjectOverviewPage() {
 
   return (
     <Box className="flex w-full flex-col gap-6">
-      <Box className="flex items-center justify-between">
+      <Box className="flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-500">
         <Typography variant="h4" component="h2">
           Overview
         </Typography>
@@ -74,23 +74,26 @@ export default function ProjectOverviewPage() {
           href={`/projects/${projectId}/ask-ava`}
           variant="contained"
           size="small"
+          className="transition-transform duration-200 hover:scale-105"
         >
           Ask AVA
         </Button>
       </Box>
 
-      <StatsGrid stats={statCards} loading={loading} error={error} title="Stats" />
+      <Box className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
+        <StatsGrid stats={statCards} loading={loading} error={error} title="Stats" />
+      </Box>
 
       <Grid container spacing={3}>
         <Grid size={{ lg: 8, xs: 12 }}>
           <Box className="flex flex-col gap-3">
-            <Typography variant="h6" component="h6" className="mt-2 mb-1">
+            <Typography variant="h6" component="h6" className="mt-2 mb-1 animate-in fade-in slide-in-from-left-2 duration-500 delay-150">
               Data Files by Type
             </Typography>
             {loading ? (
-              <Card className="h-32 animate-pulse bg-grey-25" />
+              <Card className="h-32 animate-pulse bg-grey-25 rounded-3xl" />
             ) : !stats || stats.dataFilesByType.length === 0 ? (
-              <Card>
+              <Card className="animate-in fade-in slide-in-from-left-3 duration-500 delay-200">
                 <CardContent className="p-6 text-center">
                   <Typography variant="body2" className="text-text-secondary">
                     No data files uploaded yet.
@@ -98,14 +101,16 @@ export default function ProjectOverviewPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
+              <Card className="transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-left-3 duration-500 delay-200">
                 <CardContent className="flex flex-wrap gap-2 p-5">
-                  {stats.dataFilesByType.map((entry) => (
+                  {stats.dataFilesByType.map((entry, index) => (
                     <Chip
                       key={entry.type}
                       label={`${entry.type}: ${entry.count}`}
                       color={DATA_FILE_TYPE_COLORS[entry.type] ?? "default"}
                       variant="outlined"
+                      className="transition-transform duration-200 hover:scale-105 animate-in fade-in zoom-in-95"
+                      style={{ animationDelay: `${250 + index * 50}ms`, animationDuration: "300ms" }}
                     />
                   ))}
                 </CardContent>
@@ -113,12 +118,12 @@ export default function ProjectOverviewPage() {
             )}
 
             <Box className="mt-2">
-              <Typography variant="h6" component="h6" className="mt-2 mb-3">
+              <Typography variant="h6" component="h6" className="mt-2 mb-3 animate-in fade-in slide-in-from-left-2 duration-500 delay-300">
                 Token Usage
               </Typography>
               <Grid container spacing={2.5}>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Card>
+                  <Card className="transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-3 duration-500 delay-350">
                     <CardContent className="flex flex-col gap-1">
                       <Typography variant="body1" className="text-text-secondary-dark">
                         Input Tokens
@@ -130,7 +135,7 @@ export default function ProjectOverviewPage() {
                   </Card>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Card>
+                  <Card className="transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-3 duration-500 delay-400">
                     <CardContent className="flex flex-col gap-1">
                       <Typography variant="body1" className="text-text-secondary-dark">
                         Output Tokens
@@ -147,10 +152,12 @@ export default function ProjectOverviewPage() {
         </Grid>
 
         <Grid size={{ lg: 4, xs: 12 }}>
-          <RecentActivity
-            items={stats?.recentActivity ?? []}
-            emptyMessage="No project activity yet."
-          />
+          <Box className="animate-in fade-in slide-in-from-right-3 duration-500 delay-250">
+            <RecentActivity
+              items={stats?.recentActivity ?? []}
+              emptyMessage="No project activity yet."
+            />
+          </Box>
         </Grid>
       </Grid>
     </Box>
