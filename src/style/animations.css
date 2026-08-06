@@ -109,9 +109,34 @@
   animation-delay: 400ms;
 }
 
+/* --------- Typewriter cursor --------- */
+@keyframes av-blink-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.av-typing-cursor {
+  display: inline-block;
+  width: 2px;
+  margin-left: 2px;
+  background-color: currentColor;
+  animation: av-blink-caret 1s step-end infinite;
+  vertical-align: text-bottom;
+  transform: translateY(-1px);
+}
+
 /* --------- Accessibility --------- */
 @media (prefers-reduced-motion: reduce) {
   .animate-in {
+    animation: none !important;
+  }
+
+  .av-typing-cursor {
     animation: none !important;
   }
 }

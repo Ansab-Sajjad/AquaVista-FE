@@ -112,7 +112,15 @@ export default function OverviewPage() {
                     style={{ animationDelay: `${150 + index * 75}ms` }}
                   >
                     <Link href={`/projects/${project.id}/overview`} className="block h-full no-underline">
-                      <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg">
+                      <Card
+                        className="h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
+                        sx={{
+                          background:
+                            "linear-gradient(145deg, hsl(var(--background-paper) / 0.92), hsl(var(--background-paper) / 0.78))",
+                          backdropFilter: "blur(4px)",
+                          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06)",
+                        }}
+                      >
                         <CardContent className="flex h-full flex-col gap-3 p-6">
                           <Typography
                             variant="h5"

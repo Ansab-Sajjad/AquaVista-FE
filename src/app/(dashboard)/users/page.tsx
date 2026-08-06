@@ -24,9 +24,13 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Divider,
   FormControl,
   IconButton,
   InputLabel,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Pagination,
   Select,
@@ -36,7 +40,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { DataGrid, type GridColDef, type GridPaginationModel, type GridSortModel } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, type GridSortModel } from "@mui/x-data-grid";
 
 import { DEFAULTS } from "@/config";
 import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
@@ -96,11 +100,8 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [page, setPage] = useState(0);
-  const [gridPaginationModel, setGridPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: ROWS_PER_PAGE,
-  });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
+  const [menuAnchor, setMenuAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null);
 
   const orderedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
@@ -154,7 +155,6 @@ export default function UsersPage() {
     setRoleFilter("all");
     setStatusFilter("all");
     setPage(0);
-    setGridPaginationModel({ page: 0, pageSize: ROWS_PER_PAGE });
     setSortModel([]);
   };
 
@@ -221,25 +221,36 @@ export default function UsersPage() {
       flex: 1.3,
       sortable: false,
       filterable: false,
-      renderCell: (params) => (
-        <Box className="flex max-w-full flex-wrap gap-1 py-2">
-          {params.row.projects.length ? (
-            params.row.projects.map((project: Project) => (
-              <Link
-                key={project.id}
-                href={`/projects/${project.id}/dashboard`}
-                className="border-divider text-primary hover:bg-primary/10 rounded-full border px-2.5 py-1 text-xs font-medium no-underline transition"
-              >
-                {project.name}
-              </Link>
-            ))
-          ) : (
-            <Typography variant="body2" className="text-text-secondary">
-              No projects
-            </Typography>
-          )}
-        </Box>
-      ),
+      renderCell: (params) => {
+        const projects = params.row.projects;
+        const visibleProjects = projects.slice(0, 2);
+        const remainingCount = projects.length - visibleProjects.length;
+
+        return (
+          <Box className="flex max-w-full flex-wrap items-center gap-1 py-2">
+            {projects.length ? (
+              <>
+                {visibleProjects.map((project: Project) => (
+                  <Link
+                    key={project.id}
+                    href={`/projects/${project.id}/dashboard`}
+                    className="border-divider text-primary hover:bg-primary/10 rounded-full border px-2.5 py-1 text-xs font-medium no-underline transition"
+                  >
+                    {project.name}
+                  </Link>
+                ))}
+                {remainingCount > 0 && (
+                  <Chip label={`+${remainingCount}`} size="small" variant="outlined" />
+                )}
+              </>
+            ) : (
+              <Typography variant="body2" className="text-text-secondary">
+                No projects
+              </Typography>
+            )}
+          </Box>
+        );
+      },
     },
     {
       field: "actions",
@@ -253,8 +264,8 @@ export default function UsersPage() {
         <Box className="flex items-center py-2">
           <IconButton
             size="small"
-            aria-label={`View ${params.row.name}`}
-            onClick={() => router.push(`/users/${params.row.id}`)}
+            aria-label={`Actions for ${params.row.name}`}
+            onClick={(event) => setMenuAnchor({ el: event.currentTarget, userId: params.row.id })}
             sx={{
               color: "text.secondary",
               transition: "all 0.2s ease",
@@ -264,7 +275,7 @@ export default function UsersPage() {
               },
             }}
           >
-            <Visibility fontSize="small" />
+            <MoreVert fontSize="small" />
           </IconButton>
         </Box>
       ),
@@ -321,6 +332,7 @@ export default function UsersPage() {
       <Card className="bg-background-paper shadow-darker-xs rounded-3xl">
         <CardContent className="flex flex-col gap-4 p-4 md:p-6">
           <Box className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            {/* filters - shown in both views */}
             <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} className="flex-1 flex-wrap gap-2 md:gap-3">
               <TextField
                 label="Search users"
@@ -372,7 +384,7 @@ export default function UsersPage() {
                 <ToggleButton value="list">List view</ToggleButton>
                 <ToggleButton value="grid">Grid view</ToggleButton>
               </ToggleButtonGroup>
-              <Button variant="outlined" onClick={handleResetFilters}>
+              <Button variant="surface" onClick={handleResetFilters}>
                 Reset filters
               </Button>
             </Stack>
@@ -382,98 +394,53 @@ export default function UsersPage() {
             <Box className="flex items-center justify-center py-16">
               <CircularProgress size={28} />
             </Box>
-          ) : viewMode === "grid" ? (
+          ) : viewMode === "list" ? (
             <Box className="flex flex-col gap-4">
-              <Box className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {paginatedUsers.length === 0 ? (
-                  <Box className="bg-background-paper shadow-darker-xs animate-in fade-in zoom-in-95 col-span-full flex flex-col items-center justify-center gap-2 rounded-4xl p-12 text-center duration-500">
-                    <Typography variant="body1" className="text-text-secondary">
-                      No users match the current filters.
-                    </Typography>
-                  </Box>
-                ) : (
-                  paginatedUsers.map((user, index) => (
-                    <Box
-                      key={user.id}
-                      className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-                      style={{ animationDelay: `${150 + index * 75}ms` }}
-                    >
-                      <Card
-                        onClick={() => router.push(`/users/${user.id}`)}
-                        className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
-                      >
-                        <CardContent className="flex h-full flex-col gap-4 p-6">
-                          <Box className="flex items-start justify-between gap-2">
-                            <Box className="flex items-center gap-3">
-                              <Avatar
-                                alt={user.name}
-                                src={normalizeAvatarUrl(user.profileImage || user.image || undefined)}
-                                sx={{ width: 48, height: 48 }}
-                              >
-                                {user.name?.charAt(0) ?? "U"}
-                              </Avatar>
-                              <Box className="flex flex-col gap-1">
-                                <Typography className="font-semibold">{user.name}</Typography>
-                                <Typography variant="body2" className="text-text-secondary">
-                                  {user.email}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            <Chip label={formatStatus(user.status)} size="small" color={getStatusColor(user.status)} />
-                          </Box>
-
-                          <Box className="flex flex-wrap gap-2">
-                            <Chip
-                              label={user.role === "admin" ? "Admin" : "Project user"}
-                              size="small"
-                              variant="outlined"
-                            />
-                            <Chip label={user.company || "-"} size="small" variant="outlined" />
-                          </Box>
-
-                          <Box className="flex flex-col gap-1">
-                            <Typography variant="body2" className="font-semibold">
-                              Projects
-                            </Typography>
-                            {user.projects.length ? (
-                              <Box className="flex flex-wrap gap-1">
-                                {user.projects.map((project) => (
-                                  <Link
-                                    key={project.id}
-                                    href={`/projects/${project.id}/dashboard`}
-                                    onClick={(event) => event.stopPropagation()}
-                                    className="border-divider text-primary hover:bg-primary/10 rounded-full border px-2.5 py-1 text-xs font-medium no-underline transition"
-                                  >
-                                    {project.name}
-                                  </Link>
-                                ))}
-                              </Box>
-                            ) : (
-                              <Typography variant="body2" className="text-text-secondary">
-                                No projects
-                              </Typography>
-                            )}
-                          </Box>
-
-                          <Box className="mt-auto flex justify-end">
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<Visibility fontSize="small" />}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                router.push(`/users/${user.id}`);
-                              }}
-                              className="transition-transform duration-200 hover:scale-105"
-                            >
-                              View
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Box>
-                  ))
-                )}
+              <Box className="w-full overflow-hidden">
+                <DataGrid
+                  rows={paginatedUsers}
+                  columns={columns}
+                  getRowId={(row) => row.id}
+                  autoHeight
+                  disableRowSelectionOnClick
+                  rowHeight={65}
+                  hideFooter
+                  sortModel={sortModel}
+                  onSortModelChange={(model) => setSortModel(model)}
+                  sx={{
+                    border: 0,
+                    "& .MuiDataGrid-columnHeaders": {
+                      backgroundColor: "rgba(0, 0, 0, 0.03)",
+                      borderBottom: "1px solid hsl(var(--grey-100))",
+                    },
+                    // Full width variant divider between rows (matches the Divider component's full width variant)
+                    "& .MuiDataGrid-row": {
+                      borderBottom: "1px solid hsl(var(--grey-100))",
+                      borderRadius: "0 !important",
+                    },
+                    "& .MuiDataGrid-cell": {
+                      borderBottom: "none",
+                      paddingY: 2,
+                      display: "flex",
+                      alignItems: "center",
+                    },
+                  }}
+                  slots={{
+                    columnSortedAscendingIcon: () => <ArrowUpward fontSize="small" />,
+                    columnSortedDescendingIcon: () => <ArrowDownward fontSize="small" />,
+                    columnMenuIcon: () => <MoreVert fontSize="small" />,
+                    columnMenuSortAscendingIcon: () => <ArrowUpward fontSize="small" />,
+                    columnMenuSortDescendingIcon: () => <ArrowDownward fontSize="small" />,
+                    columnMenuFilterIcon: () => <FilterList fontSize="small" />,
+                    columnMenuHideIcon: () => <VisibilityOff fontSize="small" />,
+                    columnMenuClearIcon: () => <Clear fontSize="small" />,
+                    columnMenuManageColumnsIcon: () => <ViewColumn fontSize="small" />,
+                    filterPanelDeleteIcon: () => <Clear fontSize="small" />,
+                    filterPanelRemoveAllIcon: () => <Clear fontSize="small" />,
+                    quickFilterIcon: () => <Search fontSize="small" />,
+                    quickFilterClearIcon: () => <Clear fontSize="small" />,
+                  }}
+                />
               </Box>
               {sortedUsers.length > ROWS_PER_PAGE && (
                 <Box className="flex justify-center">
@@ -487,48 +454,146 @@ export default function UsersPage() {
                 </Box>
               )}
             </Box>
-          ) : (
-            <Box className="w-full overflow-hidden">
-              <DataGrid
-                rows={sortedUsers}
-                columns={columns}
-                getRowId={(row) => row.id}
-                autoHeight
-                disableRowSelectionOnClick
-                paginationModel={gridPaginationModel}
-                onPaginationModelChange={setGridPaginationModel}
-                sortModel={sortModel}
-                onSortModelChange={(model) => setSortModel(model)}
-                pageSizeOptions={[10, 20, 50]}
-                sx={{
-                  border: 0,
-                  "& .MuiDataGrid-columnHeaders": {
-                    backgroundColor: "rgba(0, 0, 0, 0.03)",
-                  },
-                  "& .MuiDataGrid-cell": {
-                    borderBottom: "1px solid rgba(224, 224, 224, 1)",
-                  },
-                }}
-                slots={{
-                  columnSortedAscendingIcon: () => <ArrowUpward fontSize="small" />,
-                  columnSortedDescendingIcon: () => <ArrowDownward fontSize="small" />,
-                  columnMenuIcon: () => <MoreVert fontSize="small" />,
-                  columnMenuSortAscendingIcon: () => <ArrowUpward fontSize="small" />,
-                  columnMenuSortDescendingIcon: () => <ArrowDownward fontSize="small" />,
-                  columnMenuFilterIcon: () => <FilterList fontSize="small" />,
-                  columnMenuHideIcon: () => <VisibilityOff fontSize="small" />,
-                  columnMenuClearIcon: () => <Clear fontSize="small" />,
-                  columnMenuManageColumnsIcon: () => <ViewColumn fontSize="small" />,
-                  filterPanelDeleteIcon: () => <Clear fontSize="small" />,
-                  filterPanelRemoveAllIcon: () => <Clear fontSize="small" />,
-                  quickFilterIcon: () => <Search fontSize="small" />,
-                  quickFilterClearIcon: () => <Clear fontSize="small" />,
-                }}
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {!loading && viewMode === "grid" && (
+        <Box className="flex flex-col gap-4">
+          <Box className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {paginatedUsers.length === 0 ? (
+              <Box className="bg-background-paper shadow-darker-xs animate-in fade-in zoom-in-95 col-span-full flex flex-col items-center justify-center gap-2 rounded-4xl p-12 text-center duration-500">
+                <Typography variant="body1" className="text-text-secondary">
+                  No users match the current filters.
+                </Typography>
+              </Box>
+            ) : (
+              paginatedUsers.map((user, index) => (
+                <Box
+                  key={user.id}
+                  className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+                  style={{ animationDelay: `${150 + index * 75}ms` }}
+                >
+                  <Card
+                    onClick={() => router.push(`/users/${user.id}`)}
+                    className="h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
+                    sx={{
+                      background:
+                        "linear-gradient(145deg, hsl(var(--background-paper) / 0.92), hsl(var(--background-paper) / 0.78))",
+                      backdropFilter: "blur(4px)",
+                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06)",
+                    }}
+                  >
+                    <CardContent className="flex h-full flex-col gap-4 p-6">
+                      <Box className="flex items-start justify-between gap-2">
+                        <Box className="flex items-center gap-3">
+                          <Avatar
+                            alt={user.name}
+                            src={normalizeAvatarUrl(user.profileImage || user.image || undefined)}
+                            sx={{ width: 48, height: 48 }}
+                          >
+                            {user.name?.charAt(0) ?? "U"}
+                          </Avatar>
+                          <Box className="flex flex-col gap-1">
+                            <Typography className="font-semibold">{user.name}</Typography>
+                            <Typography variant="body2" className="text-text-secondary">
+                              {user.email}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Chip label={formatStatus(user.status)} size="small" color={getStatusColor(user.status)} />
+                      </Box>
+
+                      <Box className="flex flex-wrap gap-2">
+                        <Chip
+                          label={user.role === "admin" ? "Admin" : "Project user"}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip label={user.company || "-"} size="small" variant="outlined" />
+                      </Box>
+
+                      <Box className="flex flex-col gap-1">
+                        <Typography variant="body2" className="font-semibold">
+                          Projects
+                        </Typography>
+                        {user.projects.length ? (
+                          <Box className="flex flex-wrap items-center gap-1">
+                            {user.projects.slice(0, 2).map((project) => (
+                              <Link
+                                key={project.id}
+                                href={`/projects/${project.id}/dashboard`}
+                                onClick={(event) => event.stopPropagation()}
+                                className="border-divider text-primary hover:bg-primary/10 rounded-full border px-2.5 py-1 text-xs font-medium no-underline transition"
+                              >
+                                {project.name}
+                              </Link>
+                            ))}
+                            {user.projects.length > 2 && (
+                              <Chip
+                                label={`+${user.projects.length - 2}`}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" className="text-text-secondary">
+                            No projects
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Box className="mt-auto flex justify-end">
+                        <Button
+                          size="small"
+                          variant="pastel"
+                          startIcon={<Visibility fontSize="small" />}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            router.push(`/users/${user.id}`);
+                          }}
+                          className="transition-transform duration-200 hover:scale-105"
+                        >
+                          View
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+              ))
+            )}
+          </Box>
+          {sortedUsers.length > ROWS_PER_PAGE && (
+            <Box className="flex justify-center">
+              <Pagination
+                count={pageCount}
+                page={page + 1}
+                onChange={(_event, nextPage) => setPage(nextPage - 1)}
+                siblingCount={1}
+                boundaryCount={1}
               />
             </Box>
           )}
-        </CardContent>
-      </Card>
+        </Box>
+      )}
+
+      <Menu
+        anchorEl={menuAnchor?.el}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        slotProps={{ paper: { elevation: 2, sx: { minWidth: 180, borderRadius: 2 } } }}
+      >
+        <MenuItem
+          onClick={() => {
+            router.push(`/users/${menuAnchor!.userId}`);
+            setMenuAnchor(null);
+          }}
+        >
+          <ListItemIcon><Visibility fontSize="small" /></ListItemIcon>
+          <ListItemText>View User</ListItemText>
+        </MenuItem>
+      </Menu>
     </Box>
   );
 }

@@ -21,7 +21,7 @@ type PinnedItem = {
   createdBy: string;
   createdAt: string;
   content: string;
-  tableData?: AvaTableData;
+  tableData?: AvaTableData | AvaTableData[];
   chartData?: AvaChartData;
 };
 
@@ -37,6 +37,19 @@ function formatDate(value: string): string {
   } catch {
     return value;
   }
+}
+
+// The Mongoose schema stores `tableData` as `[Schema.Types.Mixed]`, so a single
+// table object gets persisted as an array with one element. Normalize it back to
+// a flat list of table objects so AvaTable can render each one.
+function normalizeTableData(value: AvaTableData | AvaTableData[] | undefined): AvaTableData[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.filter(
+      (entry) => entry && (Array.isArray(entry.columns) || Array.isArray(entry.rows)),
+    );
+  }
+  return [value];
 }
 
 export default function DashboardPage() {
@@ -195,9 +208,11 @@ export default function DashboardPage() {
                 />
               </Box>
 
-              {item.type === "table" && item.tableData ? (
-                <Box className="overflow-hidden rounded-xl">
-                  <AvaTable data={item.tableData} />
+              {item.type === "table" && normalizeTableData(item.tableData).length > 0 ? (
+                <Box className="flex flex-col gap-2 overflow-hidden rounded-xl">
+                  {normalizeTableData(item.tableData).map((table, tableIndex) => (
+                    <AvaTable key={tableIndex} data={table} />
+                  ))}
                 </Box>
               ) : item.type === "chart" && item.chartData ? (
                 <Box className="overflow-hidden rounded-xl">
