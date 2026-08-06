@@ -620,7 +620,13 @@ export default function AskAvaPage() {
                           size="small"
                           className="h-6 w-6 transition-transform duration-200 hover:scale-110"
                           onClick={() => handlePin(message)}
-                          title={pinnedMessageIds.has(message.id) ? "Unpin from Dashboard" : "Pin to Dashboard"}
+                          title={
+                            pinnedMessageIds.has(message.id)
+                              ? "Unpin from Dashboard"
+                              : isAdmin
+                                ? "Pin to Dashboard for all project members"
+                                : "Pin to Dashboard (visible only to you)"
+                          }
                         >
                           <PushPin
                             className={cn(

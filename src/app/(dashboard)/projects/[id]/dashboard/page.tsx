@@ -23,6 +23,8 @@ type PinnedItem = {
   content: string;
   tableData?: AvaTableData | AvaTableData[];
   chartData?: AvaChartData;
+  scope?: "global" | "private";
+  canUnpin?: boolean;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -227,17 +229,39 @@ export default function DashboardPage() {
               )}
 
               <Box className="mt-auto flex items-center justify-between pt-3 border-t border-grey-100">
-                <Typography variant="caption" className="text-text-secondary truncate flex-1">
-                  {item.createdBy} &bull; {formatDate(item.createdAt)}
-                </Typography>
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={() => handleUnpin(item.id)}
-                  className="transition-transform duration-200 hover:scale-105 flex-shrink-0 ml-2"
-                >
-                  Unpin
-                </Button>
+                <Box className="flex items-center gap-2 min-w-0 flex-1">
+                  <Typography variant="caption" className="text-text-secondary truncate">
+                    {item.createdBy} &bull; {formatDate(item.createdAt)}
+                  </Typography>
+                  {item.scope === "global" ? (
+                    <Chip
+                      label="Everyone"
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      className="flex-shrink-0"
+                      title="Pinned by an admin — visible to all project members"
+                    />
+                  ) : item.scope === "private" ? (
+                    <Chip
+                      label="Only you"
+                      size="small"
+                      variant="outlined"
+                      className="flex-shrink-0"
+                      title="Pinned by you — visible only to you"
+                    />
+                  ) : null}
+                </Box>
+                {item.canUnpin !== false && (
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => handleUnpin(item.id)}
+                    className="transition-transform duration-200 hover:scale-105 flex-shrink-0 ml-2"
+                  >
+                    Unpin
+                  </Button>
+                )}
               </Box>
             </CardContent>
           </Card>
