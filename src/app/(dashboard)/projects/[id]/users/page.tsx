@@ -48,6 +48,7 @@ type User = {
   addedAt?: string;
   projects?: string[];
 };
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function UsersPage() {
@@ -311,51 +312,71 @@ export default function UsersPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {users.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="left" className="text-text-secondary py-12 text-center">
-                        No users have been added to this project yet.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    users.map((user, index) => (
-                      <TableRow
-                        key={user.id}
-                        className="transition-colors duration-200 hover:bg-grey-25 animate-in fade-in slide-in-from-left-2"
-                        style={{ animationDelay: `${index * 50}ms`, animationDuration: "400ms" }}
-                      >
-                        <TableCell className="text-text-primary font-semibold">{user.name}</TableCell>
-                        <TableCell className="text-text-secondary">{user.email}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={user.role}
-                            size="small"
-                            color={user.role === "Super Admin" ? "primary" : "default"}
-                            variant={user.role === "Super Admin" ? "filled" : "outlined"}
-                            className="transition-transform duration-200 hover:scale-105"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={user.status}
-                            size="small"
-                            color={user.status === "Active" ? "success" : "warning"}
-                            className="transition-transform duration-200 hover:scale-105"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            aria-label={`Actions for ${user.name}`}
-                            onClick={(e) => setMenuAnchor({ el: e.currentTarget, userId: user.id })}
-                            className="transition-transform duration-200 hover:scale-110"
-                          >
-                            <MoreVert fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+{users.length === 0 ? (
+  <TableRow>
+    <TableCell colSpan={6} align="left" className="text-text-secondary py-12 text-center">
+      No users have been added to this project yet.
+    </TableCell>
+  </TableRow>
+) : (
+  users.map((user, index) => (
+    <TableRow
+      key={user.id}
+      className="transition-colors duration-200 hover:bg-grey-25 animate-in fade-in slide-in-from-left-2"
+      style={{ animationDelay: `${index * 50}ms`, animationDuration: "400ms" }}
+    >
+      <TableCell className="text-text-primary font-semibold">{user.name}</TableCell>
+      <TableCell className="text-text-secondary">{user.email}</TableCell>
+      <TableCell>
+        <Chip
+          label={user.role}
+          size="small"
+          color={user.role === "Super Admin" ? "primary" : "default"}
+          variant={user.role === "Super Admin" ? "filled" : "outlined"}
+          className="transition-transform duration-200 hover:scale-105"
+        />
+      </TableCell>
+      <TableCell>
+        <Chip
+          label={user.status}
+          size="small"
+          color={user.status === "Active" ? "success" : "warning"}
+          className="transition-transform duration-200 hover:scale-105"
+        />
+      </TableCell>
+      <TableCell>
+        {user.projects && user.projects.length > 0 ? (
+          <>
+            {user.projects.slice(0, 2).map((project, idx) => (
+              <Typography key={idx} variant="body2" className="text-text-secondary mr-2">
+                {project}
+              </Typography>
+            ))}
+            {user.projects.length > 2 ? (
+              <Typography variant="body2" className="text-text-secondary">
+                +{user.projects.length - 2} more
+              </Typography>
+            ) : null}
+          </>
+        ) : (
+          <Typography variant="body2" className="text-text-secondary">
+            No projects
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell>
+        <IconButton
+          size="small"
+          aria-label={`Actions for ${user.name}`}
+          onClick={(e) => setMenuAnchor({ el: e.currentTarget, userId: user.id })}
+          className="transition-transform duration-200 hover:scale-110"
+        >
+          <MoreVert fontSize="small" />
+        </IconButton>
+      </TableCell>
+    </TableRow>
+  ))
+)}
                 </TableBody>
               </Table>
             </TableContainer>
