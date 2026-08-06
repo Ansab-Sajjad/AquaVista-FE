@@ -15,5 +15,5 @@ export default function BackgroundWrapper() {
     return null;
   }
 
-  return <Box className={`bg-background fixed inset-0 -z-10 h-full w-full bg-cover`} />;
+  return <Box className={`bg-waves fixed inset-0 -z-10 h-full w-full bg-cover bg-center bg-no-repeat`} />;
 }

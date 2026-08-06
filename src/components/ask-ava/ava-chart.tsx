@@ -63,7 +63,7 @@ export default function AvaChart({ data }: { data: AvaChartData }) {
   };
 
   return (
-    <Box className="border-divider bg-background-paper mt-3 w-full overflow-hidden rounded-2xl border p-3">
+    <Box className="border-grey-500 bg-background-paper mt-3 w-full overflow-hidden rounded-2xl border p-3">
       {title ? (
         <Typography variant="subtitle2" className="text-text-primary mb-2">
           {title}

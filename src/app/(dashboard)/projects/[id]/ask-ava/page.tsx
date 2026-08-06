@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ArrowBack, PushPin, Settings } from "@mui/icons-material";
+import { ArrowBack, Fullscreen, FullscreenExit, PushPin, Settings } from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -25,6 +25,7 @@ import AvaChart from "@/components/ask-ava/ava-chart";
 import AvaTable from "@/components/ask-ava/ava-table";
 import StartupQuestionsDialog from "@/components/ask-ava/startup-questions-dialog";
 import type { AvaMessage, AvaUsage, StartupQuestion } from "@/components/ask-ava/types";
+import { useTypewriter } from "@/hooks/use-typewriter";
 import { AquaVista } from "@/lib/AquaVista";
 import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,10 @@ export default function AskAvaPage() {
   const [startupQuestions, setStartupQuestions] = useState<StartupQuestion[]>([]);
   const [startupDialogOpen, setStartupDialogOpen] = useState(false);
   const [viewedUserName, setViewedUserName] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  const typewriter = useTypewriter();
+  const { reset: resetTypewriter, enqueue: enqueueTypewriter } = typewriter;
 
   const token = getStoredAuthToken();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,7 +79,7 @@ export default function AskAvaPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, typewriter.progress]);
 
   const fetchUsage = useCallback(async () => {
     if (!projectId || !token) return;
@@ -121,6 +126,7 @@ export default function AskAvaPage() {
 
       setIsLoading(true);
       setError(null);
+      resetTypewriter();
 
       try {
         const chatRes = await fetch(
@@ -182,7 +188,7 @@ export default function AskAvaPage() {
         setIsLoading(false);
       }
     },
-    [projectId, requestedUserId, token],
+    [projectId, requestedUserId, token, resetTypewriter],
   );
 
   useEffect(() => {
@@ -305,18 +311,19 @@ export default function AskAvaPage() {
 
       const payload = (await response.json()) as { messages: (AvaMessage & { _id?: string })[]; usage?: AvaUsage };
       const assistantMessages = payload.messages.filter((item) => item.role === "assistant");
-      setMessages((prev) => [
-        ...prev,
-        ...assistantMessages.map((item, index) => ({
-          id: item._id || `${Date.now()}-${index}`,
-          role: item.role,
-          content: item.content,
-          type: item.type,
-          title: item.title,
-          tableData: item.tableData,
-          chartData: item.chartData,
-        })),
-      ]);
+      const mappedAssistant = assistantMessages.map((item, index) => ({
+        id: item._id || `${Date.now()}-${index}`,
+        role: item.role,
+        content: item.content,
+        type: item.type,
+        title: item.title,
+        tableData: item.tableData,
+        chartData: item.chartData,
+      }));
+      setMessages((prev) => [...prev, ...mappedAssistant]);
+      // Stream the narrative text in with a typewriter effect. Messages
+      // without content (e.g. table/chart-only) are skipped by the hook.
+      typewriter.enqueue(mappedAssistant.map((m) => ({ id: m.id, content: m.content })));
       if (payload.usage) setUsage(payload.usage);
     } catch (err) {
       console.error(err);
@@ -469,51 +476,72 @@ export default function AskAvaPage() {
         </Box>
       </Box>
 
+      {isMaximized && (
+        <Box
+          onClick={() => setIsMaximized(false)}
+          className="fixed inset-0 z-[1299] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+        />
+      )}
+
       <Card
         className={cn(
           "bg-background-paper shadow-darker-xs flex flex-col rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100",
-          isAdminViewingUser ? "h-[calc(100vh-12rem)]" : "h-[calc(100vh-22rem)]",
+          isMaximized
+            ? "fixed inset-3 z-[1300] h-auto w-auto shadow-2xl"
+            : isAdminViewingUser
+              ? "h-[calc(100vh-12rem)]"
+              : "h-[calc(100vh-22rem)]",
         )}
       >
         <CardContent className="flex h-full flex-col gap-4 p-5">
-          {isAdminViewingUser ? (
-            <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
-              Viewing chats for {viewedUserName || "this user"}. This panel is read-only.
+          <Box className="flex items-center justify-between gap-2">
+            {isAdminViewingUser ? (
+              <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm flex-1">
+                Viewing chats for {viewedUserName || "this user"}. This panel is read-only.
+              </Box>
+            ) : (
+              <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm flex-1">
+                <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
+                {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks
+                for clarification when the data is incomplete.
+              </Box>
+            )}
+            <Box className="flex items-center gap-2 flex-shrink-0">
+              {!isAdminViewingUser && usage ? (
+                <Typography
+                  variant="caption"
+                  className={cn(
+                    "font-semibold",
+                    usage.limitReached ? "text-error" : "text-text-secondary",
+                  )}
+                  title={`Ask AVA usage: ${usage.used} of ${usage.limit} questions today`}
+                >
+                  {usage.used}/{usage.limit}
+                </Typography>
+              ) : null}
+              <IconButton
+                onClick={() => setIsMaximized((prev) => !prev)}
+                title={isMaximized ? "Exit full view" : "Expand chat to full view"}
+                className="transition-transform duration-200 hover:scale-110"
+                sx={{
+                  borderColor: "divider",
+                  color: "text.secondary",
+                  "&:hover": { color: "primary.main" },
+                }}
+              >
+                {isMaximized ? <FullscreenExit /> : <Fullscreen />}
+              </IconButton>
             </Box>
-          ) : (
-            <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm">
-              <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
-              {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks
-              for clarification when the data is incomplete.
-            </Box>
-          )}
-
-          {/* Usage indicator */}
-          {!isAdminViewingUser && usage ? (
-            <Box className="flex flex-wrap items-center gap-2">
-              <Chip
-                size="small"
-                color={usage.limitReached ? "error" : "default"}
-                variant="outlined"
-                label={`Project usage: ${usage.used} / ${usage.limit} questions today`}
-              />
-              <Chip
-                size="small"
-                color={usage.limitReached ? "error" : "primary"}
-                variant="outlined"
-                label={`Ask AVA usage remaining today: ${usage.remaining} questions`}
-              />
-            </Box>
-          ) : null}
+          </Box>
 
           {/* Usage limit reached banner */}
           {!isAdminViewingUser && usage?.limitReached ? (
             <Alert severity="warning">
-              This project has reached its Ask AVA usage limit for today. Please contact your Admin or try again later.
+              You have reached your Ask AVA usage limit for today. Please contact your Admin or try again later.
             </Alert>
           ) : null}
 
-          <Box className="mb-4 flex flex-wrap items-center gap-4">
+          <Box className="mb-1 flex flex-wrap items-center gap-4">
             <Box className="w-full max-w-sm">
               <FormControl fullWidth>
                 <InputLabel id="ava-provider-select-label">AI Agent / Model</InputLabel>
@@ -592,7 +620,13 @@ export default function AskAvaPage() {
                           size="small"
                           className="h-6 w-6 transition-transform duration-200 hover:scale-110"
                           onClick={() => handlePin(message)}
-                          title={pinnedMessageIds.has(message.id) ? "Unpin from Dashboard" : "Pin to Dashboard"}
+                          title={
+                            pinnedMessageIds.has(message.id)
+                              ? "Unpin from Dashboard"
+                              : isAdmin
+                                ? "Pin to Dashboard for all project members"
+                                : "Pin to Dashboard (visible only to you)"
+                          }
                         >
                           <PushPin
                             className={cn(
@@ -613,21 +647,32 @@ export default function AskAvaPage() {
                         message.role === "user" ? "text-white" : "text-text-primary",
                       )}
                     >
-                      {message.content}
+                      {message.role === "assistant"
+                        ? typewriter.getDisplayedContent(message.id, message.content)
+                        : message.content}
+                      {message.role === "assistant" && typewriter.isTyping(message.id) && (
+                        <span className="av-typing-cursor" aria-hidden="true">
+                          &nbsp;
+                        </span>
+                      )}
                     </Typography>
                   ) : null}
 
                   {message.role === "assistant" &&
                   message.type === "table" &&
                   message.tableData &&
+                  !typewriter.isTyping(message.id) &&
                   (Array.isArray(message.tableData.columns) || Array.isArray(message.tableData.rows)) ? (
-                    <Box className="mt-2 overflow-hidden rounded-xl">
+                    <Box className="mt-2 overflow-hidden rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
                       <AvaTable data={message.tableData} />
                     </Box>
                   ) : null}
 
-                  {message.role === "assistant" && message.type === "chart" && message.chartData ? (
-                    <Box className="mt-2 overflow-hidden rounded-xl">
+                  {message.role === "assistant" &&
+                  message.type === "chart" &&
+                  message.chartData &&
+                  !typewriter.isTyping(message.id) ? (
+                    <Box className="mt-2 overflow-hidden rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
                       <AvaChart data={message.chartData} />
                     </Box>
                   ) : null}

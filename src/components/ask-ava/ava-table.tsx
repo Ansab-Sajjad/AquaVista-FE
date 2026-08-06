@@ -38,7 +38,7 @@ export default function AvaTable({ data }: { data: AvaTableData }) {
   }
 
   return (
-    <Box className="border-divider mt-3 w-full overflow-hidden rounded-2xl border">
+    <Box className="border-grey-500 mt-3 w-full overflow-hidden rounded-2xl border">
       <Box className="bg-grey-25 flex items-center justify-between px-3 py-2">
         <Typography variant="subtitle2" className="text-text-primary">
           {data?.title || "Table"}

@@ -21,8 +21,10 @@ type PinnedItem = {
   createdBy: string;
   createdAt: string;
   content: string;
-  tableData?: AvaTableData;
+  tableData?: AvaTableData | AvaTableData[];
   chartData?: AvaChartData;
+  scope?: "global" | "private";
+  canUnpin?: boolean;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -37,6 +39,19 @@ function formatDate(value: string): string {
   } catch {
     return value;
   }
+}
+
+// The Mongoose schema stores `tableData` as `[Schema.Types.Mixed]`, so a single
+// table object gets persisted as an array with one element. Normalize it back to
+// a flat list of table objects so AvaTable can render each one.
+function normalizeTableData(value: AvaTableData | AvaTableData[] | undefined): AvaTableData[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.filter(
+      (entry) => entry && (Array.isArray(entry.columns) || Array.isArray(entry.rows)),
+    );
+  }
+  return [value];
 }
 
 export default function DashboardPage() {
@@ -195,9 +210,11 @@ export default function DashboardPage() {
                 />
               </Box>
 
-              {item.type === "table" && item.tableData ? (
-                <Box className="overflow-hidden rounded-xl">
-                  <AvaTable data={item.tableData} />
+              {item.type === "table" && normalizeTableData(item.tableData).length > 0 ? (
+                <Box className="flex flex-col gap-2 overflow-hidden rounded-xl">
+                  {normalizeTableData(item.tableData).map((table, tableIndex) => (
+                    <AvaTable key={tableIndex} data={table} />
+                  ))}
                 </Box>
               ) : item.type === "chart" && item.chartData ? (
                 <Box className="overflow-hidden rounded-xl">
@@ -212,17 +229,39 @@ export default function DashboardPage() {
               )}
 
               <Box className="mt-auto flex items-center justify-between pt-3 border-t border-grey-100">
-                <Typography variant="caption" className="text-text-secondary truncate flex-1">
-                  {item.createdBy} &bull; {formatDate(item.createdAt)}
-                </Typography>
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={() => handleUnpin(item.id)}
-                  className="transition-transform duration-200 hover:scale-105 flex-shrink-0 ml-2"
-                >
-                  Unpin
-                </Button>
+                <Box className="flex items-center gap-2 min-w-0 flex-1">
+                  <Typography variant="caption" className="text-text-secondary truncate">
+                    {item.createdBy} &bull; {formatDate(item.createdAt)}
+                  </Typography>
+                  {item.scope === "global" ? (
+                    <Chip
+                      label="Everyone"
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      className="flex-shrink-0"
+                      title="Pinned by an admin — visible to all project members"
+                    />
+                  ) : item.scope === "private" ? (
+                    <Chip
+                      label="Only you"
+                      size="small"
+                      variant="outlined"
+                      className="flex-shrink-0"
+                      title="Pinned by you — visible only to you"
+                    />
+                  ) : null}
+                </Box>
+                {item.canUnpin !== false && (
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => handleUnpin(item.id)}
+                    className="transition-transform duration-200 hover:scale-105 flex-shrink-0 ml-2"
+                  >
+                    Unpin
+                  </Button>
+                )}
               </Box>
             </CardContent>
           </Card>
