@@ -243,7 +243,7 @@ export default function ProjectsPage() {
           {projects.map((project, index) => (
             <Grid
               key={project.id}
-              size={{ xs: 12, md: 6, lg: 4 }}
+              size={{ xs: 12, md: 6, lg: 6 }}
               className="animate-in fade-in slide-in-from-bottom-4 duration-500"
               style={{ animationDelay: `${150 + index * 75}ms` }}
             >
@@ -259,15 +259,40 @@ export default function ProjectsPage() {
                 >
                   <CardContent className="flex h-full flex-col gap-3 p-6">
                     <Typography
-                      variant="h5"
+                      variant="h6"
                       component="h3"
                       className="text-text-primary transition-colors duration-200"
                     >
                       {project.name}
                     </Typography>
-                    <Typography variant="body2" className="text-text-secondary line-clamp-2 min-h-[2.5rem]">
-                      {project.description || "No description provided."}
-                    </Typography>
+                    {(() => {
+                      const fullDescription = project.description || "No description provided.";
+                      const isLong = (project.description?.length ?? 0) > 200;
+                      const description = isLong
+                        ? `${fullDescription.slice(0, 200).trimEnd()}...`
+                        : fullDescription;
+                      const descriptionNode = (
+                        <Typography
+                          variant="body2"
+                          className="text-text-secondary min-h-10 max-h-10 overflow-hidden leading-5"
+                          sx={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {description}
+                        </Typography>
+                      );
+                      return isLong ? (
+                        <Tooltip title={project.description} arrow placement="top">
+                          {descriptionNode}
+                        </Tooltip>
+                      ) : (
+                        descriptionNode
+                      );
+                    })()}
                     <Box className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4">
                       <Chip
                         label={project.municipality}

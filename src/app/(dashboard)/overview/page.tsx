@@ -129,9 +129,34 @@ export default function OverviewPage() {
                           >
                             {project.name}
                           </Typography>
-                          <Typography variant="body2" className="text-text-secondary line-clamp-2 min-h-[2.5rem]">
-                            {project.description || "No description provided."}
-                          </Typography>
+                          {(() => {
+                            const fullDescription = project.description || "No description provided.";
+                            const isLong = (project.description?.length ?? 0) > 200;
+                            const description = isLong
+                              ? `${fullDescription.slice(0, 200).trimEnd()}...`
+                              : fullDescription;
+                            const descriptionNode = (
+                              <Typography
+                                variant="body2"
+                                className="text-text-secondary min-h-10 max-h-10 overflow-hidden leading-5"
+                                sx={{
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {description}
+                              </Typography>
+                            );
+                            return project.description ? (
+                              <Tooltip title={project.description} arrow placement="top">
+                                {descriptionNode}
+                              </Tooltip>
+                            ) : (
+                              descriptionNode
+                            );
+                          })()}
                           <Box className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4">
                             <Chip
                               label={project.municipality}
