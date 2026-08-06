@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  ArrowDownward,
+  ArrowUpward,
+  Clear,
+  FilterList,
+  MoreVert,
+  Search,
+  ViewColumn,
+  Visibility,
+  VisibilityOff,
+} from "@mui/icons-material";
+import {
   Alert,
   Avatar,
   Box,
@@ -25,21 +36,10 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import {
-  ArrowDownward,
-  ArrowUpward,
-  Clear,
-  FilterList,
-  MoreVert,
-  Search,
-  ViewColumn,
-  Visibility,
-  VisibilityOff,
-} from "@mui/icons-material";
-import { DataGrid, type GridColDef, type GridSortModel, type GridPaginationModel } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, type GridPaginationModel, type GridSortModel } from "@mui/x-data-grid";
 
-import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 import { DEFAULTS } from "@/config";
+import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 
 type Project = { id: string; name: string; municipality: string };
 type User = {
@@ -202,11 +202,7 @@ export default function UsersPage() {
       minWidth: 140,
       flex: 0.8,
       renderCell: (params) => (
-        <Chip
-          label={params.value === "admin" ? "Admin" : "Project user"}
-          size="small"
-          variant="outlined"
-        />
+        <Chip label={params.value === "admin" ? "Admin" : "Project user"} size="small" variant="outlined" />
       ),
     },
     {
@@ -232,7 +228,7 @@ export default function UsersPage() {
               <Link
                 key={project.id}
                 href={`/projects/${project.id}/dashboard`}
-                className="rounded-full border border-divider px-2.5 py-1 text-xs font-medium text-primary no-underline transition hover:bg-primary/10"
+                className="border-divider text-primary hover:bg-primary/10 rounded-full border px-2.5 py-1 text-xs font-medium no-underline transition"
               >
                 {project.name}
               </Link>
@@ -388,84 +384,94 @@ export default function UsersPage() {
             </Box>
           ) : viewMode === "grid" ? (
             <Box className="flex flex-col gap-4">
-              <Box className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+              <Box className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {paginatedUsers.length === 0 ? (
-                  <Box className="col-span-full flex justify-center py-16">
+                  <Box className="bg-background-paper shadow-darker-xs animate-in fade-in zoom-in-95 col-span-full flex flex-col items-center justify-center gap-2 rounded-4xl p-12 text-center duration-500">
                     <Typography variant="body1" className="text-text-secondary">
                       No users match the current filters.
                     </Typography>
                   </Box>
                 ) : (
-                  paginatedUsers.map((user) => (
-                    <Card key={user.id} variant="outlined" className="h-full border border-divider bg-background-paper">
-                      <CardContent className="flex h-full flex-col gap-4">
-                        <Box className="flex items-start justify-between gap-2">
-                          <Box className="flex items-center gap-3">
-                            <Avatar
-                              alt={user.name}
-                              src={normalizeAvatarUrl(user.profileImage || user.image || undefined)}
-                              sx={{ width: 48, height: 48 }}
-                            >
-                              {user.name?.charAt(0) ?? "U"}
-                            </Avatar>
-                            <Box className="flex flex-col gap-1">
-                              <Typography className="font-semibold">{user.name}</Typography>
-                              <Typography variant="body2" className="text-text-secondary">
-                                {user.email}
-                              </Typography>
+                  paginatedUsers.map((user, index) => (
+                    <Box
+                      key={user.id}
+                      className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+                      style={{ animationDelay: `${150 + index * 75}ms` }}
+                    >
+                      <Card
+                        onClick={() => router.push(`/users/${user.id}`)}
+                        className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
+                      >
+                        <CardContent className="flex h-full flex-col gap-4 p-6">
+                          <Box className="flex items-start justify-between gap-2">
+                            <Box className="flex items-center gap-3">
+                              <Avatar
+                                alt={user.name}
+                                src={normalizeAvatarUrl(user.profileImage || user.image || undefined)}
+                                sx={{ width: 48, height: 48 }}
+                              >
+                                {user.name?.charAt(0) ?? "U"}
+                              </Avatar>
+                              <Box className="flex flex-col gap-1">
+                                <Typography className="font-semibold">{user.name}</Typography>
+                                <Typography variant="body2" className="text-text-secondary">
+                                  {user.email}
+                                </Typography>
+                              </Box>
                             </Box>
+                            <Chip label={formatStatus(user.status)} size="small" color={getStatusColor(user.status)} />
                           </Box>
-                          <Chip
-                            label={formatStatus(user.status)}
-                            size="small"
-                            color={getStatusColor(user.status)}
-                          />
-                        </Box>
 
-                        <Box className="flex flex-wrap gap-2">
-                          <Chip
-                            label={user.role === "admin" ? "Admin" : "Project user"}
-                            size="small"
-                            variant="outlined"
-                          />
-                          <Chip label={user.company || "-"} size="small" variant="outlined" />
-                        </Box>
+                          <Box className="flex flex-wrap gap-2">
+                            <Chip
+                              label={user.role === "admin" ? "Admin" : "Project user"}
+                              size="small"
+                              variant="outlined"
+                            />
+                            <Chip label={user.company || "-"} size="small" variant="outlined" />
+                          </Box>
 
-                        <Box className="flex flex-col gap-1">
-                          <Typography variant="body2" className="font-semibold">
-                            Projects
-                          </Typography>
-                          {user.projects.length ? (
-                            <Box className="flex flex-wrap gap-1">
-                              {user.projects.map((project) => (
-                                <Link
-                                  key={project.id}
-                                  href={`/projects/${project.id}/dashboard`}
-                                  className="rounded-full border border-divider px-2.5 py-1 text-xs font-medium text-primary no-underline transition hover:bg-primary/10"
-                                >
-                                  {project.name}
-                                </Link>
-                              ))}
-                            </Box>
-                          ) : (
-                            <Typography variant="body2" className="text-text-secondary">
-                              No projects
+                          <Box className="flex flex-col gap-1">
+                            <Typography variant="body2" className="font-semibold">
+                              Projects
                             </Typography>
-                          )}
-                        </Box>
+                            {user.projects.length ? (
+                              <Box className="flex flex-wrap gap-1">
+                                {user.projects.map((project) => (
+                                  <Link
+                                    key={project.id}
+                                    href={`/projects/${project.id}/dashboard`}
+                                    onClick={(event) => event.stopPropagation()}
+                                    className="border-divider text-primary hover:bg-primary/10 rounded-full border px-2.5 py-1 text-xs font-medium no-underline transition"
+                                  >
+                                    {project.name}
+                                  </Link>
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" className="text-text-secondary">
+                                No projects
+                              </Typography>
+                            )}
+                          </Box>
 
-                        <Box className="mt-auto flex justify-end">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<Visibility fontSize="small" />}
-                            onClick={() => router.push(`/users/${user.id}`)}
-                          >
-                            View
-                          </Button>
-                        </Box>
-                      </CardContent>
-                    </Card>
+                          <Box className="mt-auto flex justify-end">
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Visibility fontSize="small" />}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                router.push(`/users/${user.id}`);
+                              }}
+                              className="transition-transform duration-200 hover:scale-105"
+                            >
+                              View
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Box>
                   ))
                 )}
               </Box>

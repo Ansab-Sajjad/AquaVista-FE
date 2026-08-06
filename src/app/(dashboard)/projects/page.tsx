@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { FolderOpenOutlined, GroupOutlined, Update } from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -19,12 +20,13 @@ import {
   FormLabel,
   Grid,
   Input,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 import StatsGrid, { StatConfig } from "@/components/stats/stats-grid";
 import { useGlobalStats } from "@/hooks/use-stats";
+import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 
 type Project = {
   id: string;
@@ -32,6 +34,7 @@ type Project = {
   municipality: string;
   description?: string;
   teamCount: number;
+  fileCount: number;
   lastUpdated?: string | null;
 };
 
@@ -110,6 +113,7 @@ export default function ProjectsPage() {
               municipality: item.municipality,
               description: item.description,
               teamCount: item.teamCount ?? 0,
+              fileCount: item.fileCount ?? 0,
               lastUpdated: item.lastUpdated || item.updatedAt,
             }))
           : [],
@@ -158,6 +162,7 @@ export default function ProjectsPage() {
           municipality: data?.municipality || newProject.municipality,
           description: data?.description || newProject.description,
           teamCount: data?.teamCount || 0,
+          fileCount: data?.fileCount || 0,
           lastUpdated: data?.lastUpdated || new Date().toISOString(),
         },
         ...prev,
@@ -187,7 +192,10 @@ export default function ProjectsPage() {
           <Typography variant="h2" component="h1" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             Projects
           </Typography>
-          <Typography variant="body1" className="text-text-secondary animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75">
+          <Typography
+            variant="body1"
+            className="text-text-secondary animate-in fade-in slide-in-from-bottom-2 delay-75 duration-500"
+          >
             Select a municipal rate study project to open its workspace.
           </Typography>
         </Box>
@@ -195,14 +203,14 @@ export default function ProjectsPage() {
           <Button
             variant="contained"
             onClick={() => setOpen(true)}
-            className="animate-in fade-in slide-in-from-right duration-500 delay-150"
+            className="animate-in fade-in slide-in-from-right delay-150 duration-500"
           >
             Create Project
           </Button>
         )}
       </Box>
 
-      <Box className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
+      <Box className="animate-in fade-in slide-in-from-bottom-3 delay-100 duration-500">
         <StatsGrid stats={statCards} loading={statsLoading} error={statsError} title="Overview" />
       </Box>
 
@@ -213,14 +221,16 @@ export default function ProjectsPage() {
       )}
 
       {loading ? (
-        <Box className="bg-background-paper shadow-darker-xs flex items-center justify-center rounded-4xl p-12 animate-in fade-in duration-300">
+        <Box className="bg-background-paper shadow-darker-xs animate-in fade-in flex items-center justify-center rounded-4xl p-12 duration-300">
           <CircularProgress size={28} />
         </Box>
       ) : projects.length === 0 ? (
-        <Box className="bg-background-paper shadow-darker-xs flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center animate-in fade-in zoom-in-95 duration-500">
+        <Box className="bg-background-paper shadow-darker-xs animate-in fade-in zoom-in-95 flex flex-col items-center justify-center gap-4 rounded-4xl p-12 text-center duration-500">
           <Typography variant="h4">No projects yet</Typography>
           <Typography variant="body1" className="text-text-secondary max-w-md">
-            {isAdmin ? "Create a project to start a municipal rate study." : "You have not been added to any projects yet. Contact your AquaVista consultant."}
+            {isAdmin
+              ? "Create a project to start a municipal rate study."
+              : "You have not been added to any projects yet. Contact your AquaVista consultant."}
           </Typography>
           {isAdmin && (
             <Button variant="contained" onClick={() => setOpen(true)} className="mt-2">
@@ -237,37 +247,50 @@ export default function ProjectsPage() {
               className="animate-in fade-in slide-in-from-bottom-4 duration-500"
               style={{ animationDelay: `${150 + index * 75}ms` }}
             >
-              <Link
-                href={`/projects/${project.id}/overview`}
-                className="block h-full no-underline"
-              >
-                <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1">
+              <Link href={`/projects/${project.id}/overview`} className="block h-full no-underline">
+                <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg">
                   <CardContent className="flex h-full flex-col gap-3 p-6">
-                    <Typography variant="h5" component="h3" className="text-text-primary transition-colors duration-200">
+                    <Typography
+                      variant="h5"
+                      component="h3"
+                      className="text-text-primary transition-colors duration-200"
+                    >
                       {project.name}
                     </Typography>
                     <Typography variant="body2" className="text-text-secondary line-clamp-2 min-h-[2.5rem]">
                       {project.description || "No description provided."}
                     </Typography>
-                    <Box className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                    <Box className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4">
                       <Chip
                         label={project.municipality}
                         size="small"
                         color="primary"
                         className="transition-transform duration-200 hover:scale-105"
                       />
-                      <Chip
-                        label={`${project.teamCount} member${project.teamCount !== 1 ? 's' : ''}`}
-                        size="small"
-                        variant="outlined"
-                        className="transition-transform duration-200 hover:scale-105"
-                      />
-                      <Chip
-                        label={`Updated ${formatDate(project.lastUpdated)}`}
-                        size="small"
-                        variant="outlined"
-                        className="text-text-secondary transition-transform duration-200 hover:scale-105"
-                      />
+                      <Tooltip title={`${project.teamCount} member${project.teamCount !== 1 ? "s" : ""}`}>
+                        <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                          <GroupOutlined fontSize="small" />
+                          <Typography variant="body2" component="span">
+                            {project.teamCount}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+                      <Tooltip title={`${project.fileCount} file${project.fileCount !== 1 ? "s" : ""}`}>
+                        <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                          <FolderOpenOutlined fontSize="small" />
+                          <Typography variant="body2" component="span">
+                            {project.fileCount}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+                      <Tooltip title={`Updated ${formatDate(project.lastUpdated)}`}>
+                        <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                          <Update fontSize="small" />
+                          <Typography variant="body2" component="span">
+                            {formatDate(project.lastUpdated)}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
                     </Box>
                   </CardContent>
                 </Card>
@@ -285,8 +308,8 @@ export default function ProjectsPage() {
         slotProps={{
           backdrop: {
             className: "backdrop-blur-sm",
-            timeout: 300
-          }
+            timeout: 300,
+          },
         }}
         className="animate-in fade-in zoom-in-95 duration-200"
       >

@@ -1,19 +1,23 @@
+import { Box, Typography } from "@mui/material";
+
 import { cn } from "@/lib/utils";
 
 export default function Logo({ classNameFull, classNameMobile }: { classNameFull?: string; classNameMobile?: string }) {
+  const LogoText = ({ className }: { className?: string }) => (
+    <Box className={cn("flex items-center gap-1", className)}>
+      <Typography variant="h3" component="span" className="text-text-primary font-bold">
+        Aqua
+      </Typography>
+      <Typography variant="h3" component="span" className="text-primary font-bold">
+        Vista
+      </Typography>
+    </Box>
+  );
+
   return (
     <>
-      <img
-        src="/images/email/logo.png"
-        alt="Logo"
-        className={cn("h-[31px] w-auto", classNameFull)}
-      />
-
-      <img
-        src="/images/email/logo.png"
-        alt="Logo"
-        className={cn("h-[31px] w-auto", classNameMobile)}
-      />
+      <LogoText className={classNameFull} />
+      <LogoText className={classNameMobile} />
     </>
   );
 }

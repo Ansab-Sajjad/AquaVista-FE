@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 
-import { Breadcrumbs, Box, Card, CardContent, Chip, Grid, Typography } from "@mui/material";
+import { ChatOutlined, FolderOpenOutlined, GroupOutlined, PushPinOutlined, Update } from "@mui/icons-material";
+import { Box, Breadcrumbs, Card, CardContent, Chip, Grid, Tooltip, Typography } from "@mui/material";
 
 import RecentActivity from "@/components/stats/recent-activity";
 import StatsGrid, { StatConfig } from "@/components/stats/stats-grid";
@@ -92,7 +93,7 @@ export default function OverviewPage() {
               Projects
             </Typography>
             {loading ? (
-              <Card className="h-40 animate-pulse bg-grey-25" />
+              <Card className="bg-grey-25 h-40 animate-pulse" />
             ) : !stats || stats.projects.length === 0 ? (
               <Card>
                 <CardContent className="p-6 text-center">
@@ -110,11 +111,8 @@ export default function OverviewPage() {
                     className="animate-in fade-in slide-in-from-bottom-4 duration-500"
                     style={{ animationDelay: `${150 + index * 75}ms` }}
                   >
-                    <Link
-                      href={`/projects/${project.id}/overview`}
-                      className="block h-full no-underline"
-                    >
-                      <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1">
+                    <Link href={`/projects/${project.id}/overview`} className="block h-full no-underline">
+                      <Card className="bg-background-paper shadow-darker-xs h-full w-full cursor-pointer rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg">
                         <CardContent className="flex h-full flex-col gap-3 p-6">
                           <Typography
                             variant="h5"
@@ -123,49 +121,56 @@ export default function OverviewPage() {
                           >
                             {project.name}
                           </Typography>
-                          <Typography
-                            variant="body2"
-                            className="text-text-secondary line-clamp-2 min-h-[2.5rem]"
-                          >
+                          <Typography variant="body2" className="text-text-secondary line-clamp-2 min-h-[2.5rem]">
                             {project.description || "No description provided."}
                           </Typography>
-                          <Box className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                          <Box className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4">
                             <Chip
                               label={project.municipality}
                               size="small"
                               color="primary"
                               className="transition-transform duration-200 hover:scale-105"
                             />
-                            <Chip
-                              label={`${project.memberCount} member${project.memberCount !== 1 ? "s" : ""}`}
-                              size="small"
-                              variant="outlined"
-                              className="transition-transform duration-200 hover:scale-105"
-                            />
-                            <Chip
-                              label={`${project.dataFiles} file${project.dataFiles !== 1 ? "s" : ""}`}
-                              size="small"
-                              variant="outlined"
-                              className="transition-transform duration-200 hover:scale-105"
-                            />
-                            <Chip
-                              label={`${project.pinnedItems} pinned`}
-                              size="small"
-                              variant="outlined"
-                              className="transition-transform duration-200 hover:scale-105"
-                            />
-                            <Chip
-                              label={`${project.chats} chat${project.chats !== 1 ? "s" : ""}`}
-                              size="small"
-                              variant="outlined"
-                              className="transition-transform duration-200 hover:scale-105"
-                            />
-                            <Chip
-                              label={`Updated ${formatDate(project.lastUpdated)}`}
-                              size="small"
-                              variant="outlined"
-                              className="text-text-secondary transition-transform duration-200 hover:scale-105"
-                            />
+                            <Tooltip title={`${project.memberCount} member${project.memberCount !== 1 ? "s" : ""}`}>
+                              <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                                <GroupOutlined fontSize="small" />
+                                <Typography variant="body2" component="span">
+                                  {project.memberCount}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                            <Tooltip title={`${project.dataFiles} file${project.dataFiles !== 1 ? "s" : ""}`}>
+                              <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                                <FolderOpenOutlined fontSize="small" />
+                                <Typography variant="body2" component="span">
+                                  {project.dataFiles}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                            <Tooltip title={`${project.pinnedItems} pinned`}>
+                              <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                                <PushPinOutlined fontSize="small" />
+                                <Typography variant="body2" component="span">
+                                  {project.pinnedItems}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                            <Tooltip title={`${project.chats} chat${project.chats !== 1 ? "s" : ""}`}>
+                              <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                                <ChatOutlined fontSize="small" />
+                                <Typography variant="body2" component="span">
+                                  {project.chats}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                            <Tooltip title={`Updated ${formatDate(project.lastUpdated)}`}>
+                              <Box className="text-text-secondary hover:text-text-primary flex cursor-default items-center gap-1.5 transition-colors duration-200">
+                                <Update fontSize="small" />
+                                <Typography variant="body2" component="span">
+                                  {formatDate(project.lastUpdated)}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
                           </Box>
                         </CardContent>
                       </Card>
@@ -178,10 +183,7 @@ export default function OverviewPage() {
         </Grid>
 
         <Grid size={{ lg: 4, xs: 12 }}>
-          <RecentActivity
-            items={stats?.recentActivity ?? []}
-            emptyMessage="No recent activity across your projects."
-          />
+          <RecentActivity items={stats?.recentActivity ?? []} emptyMessage="No recent activity across your projects." />
         </Grid>
       </Grid>
     </Grid>

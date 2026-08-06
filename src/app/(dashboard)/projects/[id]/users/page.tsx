@@ -46,8 +46,8 @@ type User = {
   status: string;
   lastActive?: string | null;
   addedAt?: string;
+  projects?: string[];
 };
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function UsersPage() {
