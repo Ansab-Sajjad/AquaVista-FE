@@ -1,0 +1,117 @@
+/* --------------------------- */
+/* Enter animations            */
+/* --------------------------- */
+/*
+  Lightweight, dependency-free subset of the tailwindcss-animate API.
+  Composite keyframe driven by CSS variables so `fade-in`, `zoom-in-*`
+  and `slide-in-from-*` can be combined on a single element.
+*/
+
+@keyframes av-enter {
+  from {
+    opacity: var(--av-enter-opacity, 1);
+    transform: translate3d(var(--av-enter-translate-x, 0), var(--av-enter-translate-y, 0), 0)
+      scale3d(var(--av-enter-scale, 1), var(--av-enter-scale, 1), 1);
+  }
+}
+
+.animate-in {
+  --av-enter-opacity: initial;
+  --av-enter-scale: initial;
+  --av-enter-translate-x: initial;
+  --av-enter-translate-y: initial;
+  animation-name: av-enter;
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+  will-change: opacity, transform;
+}
+
+/* --------- Modifiers --------- */
+.fade-in {
+  --av-enter-opacity: 0;
+}
+
+.zoom-in-95 {
+  --av-enter-scale: 0.95;
+}
+
+.slide-in-from-top-2 {
+  --av-enter-translate-y: -0.5rem;
+}
+.slide-in-from-top-3 {
+  --av-enter-translate-y: -0.75rem;
+}
+
+.slide-in-from-bottom-2 {
+  --av-enter-translate-y: 0.5rem;
+}
+.slide-in-from-bottom-3 {
+  --av-enter-translate-y: 0.75rem;
+}
+.slide-in-from-bottom-4 {
+  --av-enter-translate-y: 1rem;
+}
+
+.slide-in-from-left-2 {
+  --av-enter-translate-x: -0.5rem;
+}
+.slide-in-from-left-3 {
+  --av-enter-translate-x: -0.75rem;
+}
+
+.slide-in-from-right {
+  --av-enter-translate-x: 1rem;
+}
+.slide-in-from-right-3 {
+  --av-enter-translate-x: 0.75rem;
+}
+
+/* --------- Timing --------- */
+/*
+  Tailwind's `duration-*` / `delay-*` utilities target transition-*, not
+  animation-*. These compound selectors map the same tokens onto the
+  animation when `animate-in` is present, and cover the off-scale values
+  (250/350/400) the project uses for staggered lists.
+*/
+.animate-in.duration-200 {
+  animation-duration: 200ms;
+}
+.animate-in.duration-300 {
+  animation-duration: 300ms;
+}
+.animate-in.duration-500 {
+  animation-duration: 500ms;
+}
+
+.animate-in.delay-75 {
+  animation-delay: 75ms;
+}
+.animate-in.delay-100 {
+  animation-delay: 100ms;
+}
+.animate-in.delay-150 {
+  animation-delay: 150ms;
+}
+.animate-in.delay-200 {
+  animation-delay: 200ms;
+}
+.animate-in.delay-250 {
+  animation-delay: 250ms;
+}
+.animate-in.delay-300 {
+  animation-delay: 300ms;
+}
+.animate-in.delay-350 {
+  animation-delay: 350ms;
+}
+.animate-in.delay-400 {
+  animation-delay: 400ms;
+}
+
+/* --------- Accessibility --------- */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in {
+    animation: none !important;
+  }
+}

@@ -61,6 +61,7 @@ export interface ProjectSummary {
   id: string;
   name: string;
   municipality: string;
+  description?: string | null;
   memberCount: number;
   dataFiles: number;
   pinnedItems: number;
