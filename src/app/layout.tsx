@@ -59,7 +59,7 @@ export default async function RootLayout({
         {/* Load the loader script directly for fastest execution */}
         <Script id="loader-script" src="/initial-loader.js" strategy="beforeInteractive" />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         {/* Initial loader */}
         <div id="initial-loader" suppressHydrationWarning>
           <div className="spinner"></div>

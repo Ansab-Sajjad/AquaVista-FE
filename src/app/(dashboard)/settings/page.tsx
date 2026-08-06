@@ -30,8 +30,8 @@ export default function Settings() {
               Profile
             </Typography>
             <Breadcrumbs>
-              <Link color="inherit" href="/projects">
-                Projects
+              <Link color="inherit" href="/overview">
+                Overview
               </Link>
               <Link color="inherit" href="/settings">
                 Settings

@@ -445,7 +445,7 @@ export default function AskAvaPage() {
           {isAdminViewingUser && (
             <Button
               startIcon={<ArrowBack />}
-              onClick={() => router.push(`/projects/${projectId}/users`)}
+              onClick={() => router.push(requestedUserId ? `/users/${requestedUserId}` : `/projects/${projectId}/users`)}
               variant="outlined"
               className="w-fit"
               sx={{

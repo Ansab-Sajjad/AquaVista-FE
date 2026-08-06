@@ -39,6 +39,7 @@ import {
 import { DataGrid, type GridColDef, type GridSortModel, type GridPaginationModel } from "@mui/x-data-grid";
 
 import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
+import { DEFAULTS } from "@/config";
 
 type Project = { id: string; name: string; municipality: string };
 type User = {
@@ -300,7 +301,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!isAdminUser()) {
-      router.replace("/projects");
+      router.replace(DEFAULTS.appRoot);
       return;
     }
     void loadUsers();

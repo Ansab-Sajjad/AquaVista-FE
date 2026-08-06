@@ -24,6 +24,7 @@ import {
 import { ArrowBack, Business, Email, Forum, Person, Work } from "@mui/icons-material";
 
 import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
+import { DEFAULTS } from "@/config";
 
 type Project = { id: string; name: string; municipality: string };
 type UserDetail = {
@@ -73,7 +74,7 @@ export default function UserDetailPage() {
 
   useEffect(() => {
     if (!isAdminUser()) {
-      router.replace("/projects");
+      router.replace(DEFAULTS.appRoot);
       return;
     }
 
