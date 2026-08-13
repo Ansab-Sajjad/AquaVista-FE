@@ -7,6 +7,7 @@ import { useDropzone } from "react-dropzone";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import {
   Alert,
   Box,
@@ -25,7 +26,8 @@ import {
   Typography,
 } from "@mui/material";
 
-import { getStoredAuthToken } from "@/lib/auth";
+import FilePreviewDialog from "@/components/file-preview-dialog";
+import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
 
 const DATA_TYPES = [
   "Financial Snapshot",
@@ -63,6 +65,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 export default function DataPage() {
   const params = useParams();
   const projectId = (params?.id as string) || "";
+  const isAdmin = isAdminUser();
 
   const [uploads, setUploads] = useState<UploadFile[]>([]);
   const [templates, setTemplates] = useState<TemplateFile[]>([]);
@@ -74,6 +77,14 @@ export default function DataPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [previewFile, setPreviewFile] = useState<{ id: string; name: string } | null>(null);
+  const handleOpenPreview = (fileId: string, fileName: string) => {
+    setPreviewFile({ id: fileId, name: fileName });
+  };
+  const handleClosePreview = () => {
+    setPreviewFile(null);
+  };
 
   const fetchUploadedFiles = useCallback(async () => {
     if (!projectId) return;
@@ -170,6 +181,8 @@ export default function DataPage() {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
       "text/csv": [".csv"],
       "application/pdf": [".pdf"],
+      "application/msword": [".doc"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
     },
   });
 
@@ -286,59 +299,65 @@ export default function DataPage() {
         </Alert>
       )}
 
-      {/* Upload Section */}
-      <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
-        <CardContent className="flex flex-col gap-4 p-5">
-          <Typography variant="h6">Upload project data</Typography>
-          <Box className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel className="mb-1.5">File type</FormLabel>
-              <Select value={fileType} onChange={(e) => setFileType(e.target.value)}>
-                {DATA_TYPES.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel className="mb-1.5">Year</FormLabel>
-              <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="YYYY" />
-            </FormControl>
-          </Box>
+      {/* Upload Section (admin only) */}
+      {isAdmin ? (
+        <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
+          <CardContent className="flex flex-col gap-4 p-5">
+            <Typography variant="h6">Upload project data</Typography>
+            <Box className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <FormControl className="outlined" variant="standard" size="small">
+                <FormLabel className="mb-1.5">File type</FormLabel>
+                <Select value={fileType} onChange={(e) => setFileType(e.target.value)}>
+                  {DATA_TYPES.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {type}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl className="outlined" variant="standard" size="small">
+                <FormLabel className="mb-1.5">Year</FormLabel>
+                <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="YYYY" />
+              </FormControl>
+            </Box>
 
-          <Box
-            {...getRootProps()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
-              isDragActive
-                ? "border-primary bg-primary/5 scale-[1.01]"
-                : "border-grey-100 hover:border-primary hover:bg-grey-25"
-            }`}
-          >
-            <input {...getInputProps()} />
-            {uploading ? (
-              <Box className="flex flex-col items-center gap-2 animate-in fade-in duration-300">
-                <CircularProgress size={32} />
-                <Typography variant="body1">Uploading document...</Typography>
-              </Box>
-            ) : (
-              <>
-                <CloudUploadIcon
-                  color="action"
-                  sx={{ fontSize: 36 }}
-                  className={`transition-transform duration-300 ${isDragActive ? "scale-110" : ""}`}
-                />
-                <Typography variant="body1" className={isDragActive ? "text-primary" : "text-text-secondary"}>
-                  {isDragActive ? "Drop the file here" : "Drag & drop a CSV, Excel, or PDF file, or click to browse"}
-                </Typography>
-                <Typography variant="caption" className="text-text-secondary">
-                  Supported formats: .csv, .xlsx, .pdf
-                </Typography>
-              </>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+            <Box
+              {...getRootProps()}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
+                isDragActive
+                  ? "border-primary bg-primary/5 scale-[1.01]"
+                  : "border-grey-100 hover:border-primary hover:bg-grey-25"
+              }`}
+            >
+              <input {...getInputProps()} />
+              {uploading ? (
+                <Box className="flex flex-col items-center gap-2 animate-in fade-in duration-300">
+                  <CircularProgress size={32} />
+                  <Typography variant="body1">Uploading document...</Typography>
+                </Box>
+              ) : (
+                <>
+                  <CloudUploadIcon
+                    color="action"
+                    sx={{ fontSize: 36 }}
+                    className={`transition-transform duration-300 ${isDragActive ? "scale-110" : ""}`}
+                  />
+                  <Typography variant="body1" className={isDragActive ? "text-primary" : "text-text-secondary"}>
+                    {isDragActive ? "Drop the file here" : "Drag & drop a CSV, Excel, PDF, or Word file, or click to browse"}
+                  </Typography>
+                  <Typography variant="caption" className="text-text-secondary">
+                    Supported formats: .csv, .xlsx, .pdf, .doc, .docx
+                  </Typography>
+                </>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      ) : (
+        <Alert severity="info" className="animate-in fade-in slide-in-from-top-2 duration-300">
+          Only admins can upload data files to a project. Please contact an administrator if you need to add files.
+        </Alert>
+      )}
 
       {/* Uploaded Files Section */}
       <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
@@ -380,21 +399,33 @@ export default function DataPage() {
                         size="small"
                         variant="outlined"
                         color="primary"
+                        startIcon={<VisibilityIcon />}
+                        onClick={() => handleOpenPreview(file.id, file.name)}
+                        className="transition-transform duration-200 hover:scale-105"
+                      >
+                        Preview
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
                         startIcon={<DownloadIcon />}
                         onClick={() => handleDownloadUploadedFile(file.id, file.name)}
                         className="transition-transform duration-200 hover:scale-105"
                       >
                         Download
                       </Button>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteUploadedFile(file.id)}
-                        title="Delete file"
-                        className="transition-transform duration-200 hover:scale-110"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      {isAdmin && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteUploadedFile(file.id)}
+                          title="Delete file"
+                          className="transition-transform duration-200 hover:scale-110"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 </Grid>
@@ -404,10 +435,11 @@ export default function DataPage() {
         </CardContent>
       </Card>
 
-      {/* Baseline Templates Section */}
-      <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-200">
-        <CardContent className="flex flex-col gap-4 p-5">
-          <Typography variant="h6">Baseline templates</Typography>
+      {/* Baseline Templates Section (admin only) */}
+      {isAdmin && (
+        <Card className="bg-background-paper shadow-darker-xs rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-200">
+          <CardContent className="flex flex-col gap-4 p-5">
+            <Typography variant="h6">Baseline templates</Typography>
           {loadingTemplates ? (
             <Box className="flex items-center justify-center p-6">
               <CircularProgress size={28} />
@@ -445,8 +477,17 @@ export default function DataPage() {
               ))}
             </Grid>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      <FilePreviewDialog
+        open={Boolean(previewFile)}
+        fileId={previewFile?.id ?? null}
+        fileName={previewFile?.name ?? ""}
+        projectId={projectId}
+        onClose={handleClosePreview}
+      />
     </Box>
   );
 }

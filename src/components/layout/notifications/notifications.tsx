@@ -1,3 +1,4 @@
+import { getCategoryConfig } from "./notification-category-config";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useMemo } from "react";
@@ -31,6 +32,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { type NotificationItem as NotificationItemData, useNotifications } from "@/hooks/use-notifications";
 import NiBell from "@/icons/nexture/ni-bell";
 import NiBellInactive from "@/icons/nexture/ni-bell-inactive";
 import NiEllipsisHorizontal from "@/icons/nexture/ni-ellipsis-horizontal";
@@ -39,8 +41,6 @@ import NiSettings from "@/icons/nexture/ni-settings";
 import NiStructure from "@/icons/nexture/ni-structure";
 import NiUsers from "@/icons/nexture/ni-users";
 import NextureIcons, { IconName } from "@/icons/nexture-icons";
-import { useNotifications, type NotificationItem as NotificationItemData } from "@/hooks/use-notifications";
-import { getCategoryConfig } from "./notification-category-config";
 import { cn } from "@/lib/utils";
 
 type ChipData = {
@@ -105,8 +105,7 @@ function toNotificationData(n: NotificationItemData): NotificationData {
 }
 
 export default function Notifications() {
-  const { notifications, unreadCount, loading, markOneAsRead, markOneAsUnread, markAllAsRead } =
-    useNotifications();
+  const { notifications, unreadCount, loading, markOneAsRead, markOneAsUnread, markAllAsRead } = useNotifications();
 
   const notificationData = useMemo(() => notifications.map(toNotificationData), [notifications]);
 
@@ -344,7 +343,14 @@ export default function Notifications() {
                   </TabContext>
 
                   <CardActions disableSpacing>
-                    <Button variant="outlined" size="tiny" color="grey" className="w-full">
+                    <Button
+                      variant="outlined"
+                      size="tiny"
+                      color="grey"
+                      className="w-full"
+                      component={Link}
+                      href="/recent-activity"
+                    >
                       View All
                     </Button>
                   </CardActions>
@@ -513,7 +519,7 @@ function NotificationItem({
 
 function EmptyState() {
   return (
-    <Box className="flex flex-col items-center justify-center py-8 px-4">
+    <Box className="flex flex-col items-center justify-center px-4 py-8">
       <Typography variant="body2" color="text.secondary" align="center">
         No notifications to show.
       </Typography>
@@ -529,7 +535,7 @@ function NotificationSkeleton() {
           <ListItemAvatar>
             <Skeleton variant="circular" width={40} height={40} className="me-3" />
           </ListItemAvatar>
-          <Box className="flex flex-col gap-1 w-full">
+          <Box className="flex w-full flex-col gap-1">
             <Skeleton variant="text" width="60%" height={20} />
             <Skeleton variant="text" width="90%" height={16} />
             <Skeleton variant="text" width="30%" height={14} />

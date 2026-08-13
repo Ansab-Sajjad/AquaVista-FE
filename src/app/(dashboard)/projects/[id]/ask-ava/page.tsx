@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ArrowBack, Fullscreen, FullscreenExit, PushPin, Settings } from "@mui/icons-material";
+import { ArrowBack, AutoAwesome, Fullscreen, FullscreenExit, PushPin } from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -23,7 +23,7 @@ import {
 
 import AvaChart from "@/components/ask-ava/ava-chart";
 import AvaTable from "@/components/ask-ava/ava-table";
-import StartupQuestionsDialog from "@/components/ask-ava/startup-questions-dialog";
+import { useAvaUsage } from "@/components/ask-ava/ava-usage-context";
 import type { AvaMessage, AvaUsage, StartupQuestion } from "@/components/ask-ava/types";
 import { useTypewriter } from "@/hooks/use-typewriter";
 import { AquaVista } from "@/lib/AquaVista";
@@ -59,11 +59,10 @@ export default function AskAvaPage() {
   const [error, setError] = useState<string | null>(null);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<"gemini" | "groq" | "ollama">("gemini");
-  const [usage, setUsage] = useState<AvaUsage | null>(null);
   const [startupQuestions, setStartupQuestions] = useState<StartupQuestion[]>([]);
-  const [startupDialogOpen, setStartupDialogOpen] = useState(false);
   const [viewedUserName, setViewedUserName] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [projectName, setProjectName] = useState<string | null>(null);
 
   const typewriter = useTypewriter();
   const { reset: resetTypewriter, enqueue: enqueueTypewriter } = typewriter;
@@ -72,6 +71,7 @@ export default function AskAvaPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isAdmin = isAdminUser();
   const isAdminViewingUser = Boolean(requestedUserId) && isAdmin;
+  const { usage, setUsage } = useAvaUsage();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,18 +81,6 @@ export default function AskAvaPage() {
     scrollToBottom();
   }, [messages, typewriter.progress]);
 
-  const fetchUsage = useCallback(async () => {
-    if (!projectId || !token) return;
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/usage`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setUsage(await res.json());
-    } catch {
-      // Usage is non-critical; ignore
-    }
-  }, [projectId, token]);
-
   const fetchStartupQuestions = useCallback(async () => {
     if (!projectId || !token) return;
     try {
@@ -100,6 +88,21 @@ export default function AskAvaPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setStartupQuestions(await res.json());
+    } catch {
+      // Non-critical; ignore
+    }
+  }, [projectId, token]);
+
+  const fetchProjectName = useCallback(async () => {
+    if (!projectId || !token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectName(data.name || null);
+      }
     } catch {
       // Non-critical; ignore
     }
@@ -139,7 +142,8 @@ export default function AskAvaPage() {
         );
 
         if (!chatRes.ok) {
-          throw new Error("Failed to load Ask AVA conversation");
+          const payload = await chatRes.json().catch(() => null);
+          throw new Error(payload?.message || `Failed to load Ask AVA conversation (${chatRes.status})`);
         }
 
         const chat = (await chatRes.json()) as ChatRecord;
@@ -212,7 +216,8 @@ export default function AskAvaPage() {
         );
 
         if (!chatsRes.ok) {
-          throw new Error("Failed to load chat list");
+          const payload = await chatsRes.json().catch(() => null);
+          throw new Error(payload?.message || `Failed to load chat list (${chatsRes.status})`);
         }
 
         const chats = (await chatsRes.json()) as any[];
@@ -238,7 +243,8 @@ export default function AskAvaPage() {
           });
 
           if (!createRes.ok) {
-            throw new Error("Failed to create Ask AVA chat");
+            const payload = await createRes.json().catch(() => null);
+            throw new Error(payload?.message || `Failed to create Ask AVA chat (${createRes.status})`);
           }
 
           selectedChat = await createRes.json();
@@ -260,15 +266,15 @@ export default function AskAvaPage() {
     fetchChat();
   }, [projectId, isAdminViewingUser, requestedUserId, token, loadChat]);
 
-  // Load usage + startup questions + viewed user name on mount
+  // Load startup questions + viewed user name on mount (usage is fetched by the shared AvaUsageProvider)
   useEffect(() => {
     if (!isAdminViewingUser) {
-      void fetchUsage();
       void fetchStartupQuestions();
+      void fetchProjectName();
     } else {
       void fetchViewedUser();
     }
-  }, [fetchUsage, fetchStartupQuestions, fetchViewedUser, isAdminViewingUser]);
+  }, [fetchStartupQuestions, fetchProjectName, fetchViewedUser, isAdminViewingUser]);
 
   const sendMessage = async (overrideContent?: string) => {
     if (isAdminViewingUser) {
@@ -389,21 +395,6 @@ export default function AskAvaPage() {
     }
   };
 
-  const handleSaveStartupQuestions = async (questions: StartupQuestion[]) => {
-    if (!projectId || !token) return;
-    const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ questions }),
-    });
-    if (!res.ok) throw new Error("Failed to save startup questions");
-    const saved = await res.json();
-    setStartupQuestions(saved);
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -412,6 +403,7 @@ export default function AskAvaPage() {
   };
 
   const inputDisabled = isLoading || !token || !chatId || isAdminViewingUser || Boolean(usage?.limitReached);
+  const showStartupIntro = !isAdminViewingUser && messages.length <= 1 && startupQuestions.length > 0;
 
   return (
     <Box className="flex w-full flex-col gap-4">
@@ -425,30 +417,6 @@ export default function AskAvaPage() {
           </Typography>
         </Box>
         <Box className="flex items-center gap-2">
-          {isAdmin && !isAdminViewingUser && (
-            <Button
-              startIcon={<Settings />}
-              onClick={() => setStartupDialogOpen(true)}
-              variant="outlined"
-              className="w-fit transition-transform duration-200 hover:scale-105"
-              sx={{
-                borderColor: "divider",
-                color: "text.primary",
-                px: 2,
-                py: 0.8,
-                borderRadius: 2,
-                textTransform: "none",
-                fontWeight: 600,
-                "&:hover": {
-                  borderColor: "primary.main",
-                  color: "primary.main",
-                  backgroundColor: "action.hover",
-                },
-              }}
-            >
-              Startup questions
-            </Button>
-          )}
           {isAdminViewingUser && (
             <Button
               startIcon={<ArrowBack />}
@@ -485,7 +453,7 @@ export default function AskAvaPage() {
 
       <Card
         className={cn(
-          "bg-background-paper shadow-darker-xs flex flex-col rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100",
+          "bg-background-paper shadow-darker-xs relative flex flex-col rounded-3xl transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100",
           isMaximized
             ? "fixed inset-3 z-[1300] h-auto w-auto shadow-2xl"
             : isAdminViewingUser
@@ -493,91 +461,32 @@ export default function AskAvaPage() {
               : "h-[calc(100vh-22rem)]",
         )}
       >
+        <Box className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+          <IconButton
+            size="small"
+            onClick={() => setIsMaximized((prev) => !prev)}
+            title={isMaximized ? "Exit full view" : "Expand chat to full view"}
+            className="transition-transform duration-200 hover:scale-110"
+            sx={{
+              color: "text.secondary",
+              "&:hover": { color: "primary.main" },
+            }}
+          >
+            {isMaximized ? <FullscreenExit fontSize="small" /> : <Fullscreen fontSize="small" />}
+          </IconButton>
+        </Box>
         <CardContent className="flex h-full flex-col gap-4 p-5">
-          <Box className="flex items-center justify-between gap-2">
-            {isAdminViewingUser ? (
-              <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm flex-1">
-                Viewing chats for {viewedUserName || "this user"}. This panel is read-only.
-              </Box>
-            ) : (
-              <Box className="bg-grey-25 text-text-secondary rounded-2xl p-3 text-sm flex-1">
-                <strong>Ground rules:</strong> {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
-                {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks
-                for clarification when the data is incomplete.
-              </Box>
-            )}
-            <Box className="flex items-center gap-2 flex-shrink-0">
-              {!isAdminViewingUser && usage ? (
-                <Typography
-                  variant="caption"
-                  className={cn(
-                    "font-semibold",
-                    usage.limitReached ? "text-error" : "text-text-secondary",
-                  )}
-                  title={`Ask AVA usage: ${usage.used} of ${usage.limit} questions today`}
-                >
-                  {usage.used}/{usage.limit}
-                </Typography>
-              ) : null}
-              <IconButton
-                onClick={() => setIsMaximized((prev) => !prev)}
-                title={isMaximized ? "Exit full view" : "Expand chat to full view"}
-                className="transition-transform duration-200 hover:scale-110"
-                sx={{
-                  borderColor: "divider",
-                  color: "text.secondary",
-                  "&:hover": { color: "primary.main" },
-                }}
-              >
-                {isMaximized ? <FullscreenExit /> : <Fullscreen />}
-              </IconButton>
+          {isAdminViewingUser ? (
+            <Box className="text-text-secondary text-sm">
+              Viewing chats for {viewedUserName || "this user"}. This panel is read-only.
             </Box>
-          </Box>
+          ) : null}
 
           {/* Usage limit reached banner */}
           {!isAdminViewingUser && usage?.limitReached ? (
             <Alert severity="warning">
               You have reached your Ask AVA usage limit for today. Please contact your Admin or try again later.
             </Alert>
-          ) : null}
-
-          <Box className="mb-1 flex flex-wrap items-center gap-4">
-            <Box className="w-full max-w-sm">
-              <FormControl fullWidth>
-                <InputLabel id="ava-provider-select-label">AI Agent / Model</InputLabel>
-                <Select
-                  labelId="ava-provider-select-label"
-                  value={selectedProvider}
-                  label="AI Agent / Model"
-                  onChange={(event: SelectChangeEvent<"gemini" | "groq" | "ollama">) => {
-                    setSelectedProvider(event.target.value);
-                  }}
-                >
-                  <MenuItem value="gemini">⚡ Google Gemini</MenuItem>
-                  <MenuItem value="groq">🚀 Groq - Llama 3.3</MenuItem>
-                  <MenuItem value="ollama">🦙 Ollama / OpenRouter - DeepSeek R1</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
-
-          {/* Startup questions */}
-          {!isAdminViewingUser && startupQuestions.length > 0 ? (
-            <Box className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
-              {startupQuestions.map((question, index) => (
-                <Chip
-                  key={question._id || index}
-                  label={question.text}
-                  variant="outlined"
-                  color="primary"
-                  clickable
-                  onClick={() => void sendMessage(question.text)}
-                  disabled={isThinking || inputDisabled}
-                  className="transition-all duration-200 hover:scale-105 hover:shadow-sm animate-in fade-in zoom-in-95"
-                  style={{ animationDelay: `${200 + index * 50}ms`, animationDuration: "300ms" }}
-                />
-              ))}
-            </Box>
           ) : null}
 
           <Box className="flex-1 space-y-4 overflow-y-auto pr-2">
@@ -593,7 +502,37 @@ export default function AskAvaPage() {
               </Box>
             ) : null}
 
-            {messages.map((message, index) => (
+            {/* First-visit empty state: show startup questions (if configured for this
+                project) instead of the generic welcome message. */}
+            {showStartupIntro ? (
+              <Box className="flex h-full flex-col items-center justify-center gap-2 px-4 py-10 text-center animate-in fade-in duration-500">
+                <Box className="bg-primary/10 text-primary mb-2 flex h-12 w-12 items-center justify-center rounded-full">
+                  <AutoAwesome fontSize="medium" />
+                </Box>
+                <Typography variant="h6" className="text-primary font-bold">
+                  Ask {AquaVista.assistantName} about {projectName || "this project"}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary mb-2">
+                  Review financial, billing, and CIP data. Try a question to get started.
+                </Typography>
+                <Box className="flex flex-col items-center gap-2">
+                  {startupQuestions.map((question, index) => (
+                    <Chip
+                      key={question._id || index}
+                      label={question.text}
+                      variant="outlined"
+                      color="primary"
+                      clickable
+                      onClick={() => void sendMessage(question.text)}
+                      disabled={isThinking || inputDisabled}
+                      className="transition-all duration-200 hover:scale-105 hover:shadow-sm animate-in fade-in zoom-in-95"
+                      style={{ animationDelay: `${200 + index * 50}ms`, animationDuration: "300ms" }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            ) : (
+              messages.map((message, index) => (
               <Box
                 key={message.id}
                 className={cn(
@@ -678,7 +617,8 @@ export default function AskAvaPage() {
                   ) : null}
                 </Box>
               </Box>
-            ))}
+              ))
+            )}
 
             {isThinking && (
               <Box className="flex w-full justify-start animate-in fade-in slide-in-from-left-2 duration-300">
@@ -690,50 +630,67 @@ export default function AskAvaPage() {
             <div ref={messagesEndRef} />
           </Box>
 
-          <Box className="mt-auto flex items-start gap-2 pt-2">
-            <TextField
-              fullWidth
-              multiline={false}
-              maxRows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                usage?.limitReached
-                  ? "Ask AVA usage limit reached for today"
-                  : "Ask AVA about revenue, expenses, customer classes, rates..."
-              }
-              slotProps={{ input: { className: "rounded-2xl transition-all duration-200 focus-within:shadow-md" } }}
-              disabled={inputDisabled}
-            />
-            <Button
-              variant="contained"
-              onClick={() => void sendMessage()}
-              disabled={
-                !input.trim() ||
-                isThinking ||
-                isLoading ||
-                !token ||
-                !chatId ||
-                isAdminViewingUser ||
-                Boolean(usage?.limitReached)
-              }
-              className="h-14 px-6 transition-transform duration-200 hover:scale-105 disabled:scale-100"
-            >
-              Send
-            </Button>
-          </Box>
+          {!isAdminViewingUser ? (
+            <Box className="mt-auto flex flex-col gap-1 pt-2">
+              <Box className="flex items-center gap-2">
+                <FormControl sx={{ minWidth: { xs: 150, sm: 200 } }} size="small">
+                <Select
+                  value={selectedProvider}
+                  onChange={(event: SelectChangeEvent<"gemini" | "groq" | "ollama">) => {
+                    setSelectedProvider(event.target.value);
+                  }}
+                  className="rounded-2xl"
+                  sx={{
+                    "& .MuiOutlinedInput-notchedOutline": { borderRadius: "1rem" },
+                  }}
+                >
+                  <MenuItem value="gemini">⚡ Google Gemini</MenuItem>
+                  <MenuItem value="groq">🚀 Groq - Llama 3.3</MenuItem>
+                  <MenuItem value="ollama">🦙 Ollama / OpenRouter - DeepSeek R1</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                multiline={false}
+                maxRows={1}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  usage?.limitReached
+                    ? "Ask AVA usage limit reached for today"
+                    : "Ask AVA about revenue, expenses, customer classes, rates..."
+                }
+                slotProps={{ input: { className: "rounded-2xl transition-all duration-200 focus-within:shadow-md" } }}
+                disabled={inputDisabled}
+              />
+              <Button
+                variant="contained"
+                onClick={() => void sendMessage()}
+                disabled={
+                  !input.trim() ||
+                  isThinking ||
+                  isLoading ||
+                  !token ||
+                  !chatId ||
+                  isAdminViewingUser ||
+                  Boolean(usage?.limitReached)
+                }
+                className="h-14 px-6 transition-transform duration-200 hover:scale-105 disabled:scale-100"
+              >
+                Send
+              </Button>
+            </Box>
+            <Typography variant="caption" className="text-text-secondary text-center">
+              <strong>Ground rules:</strong>{" "}
+              {AquaVista.assistantName} answers questions based on this project&apos;s{" "}
+              {AquaVista.terminology.baselineData.toLowerCase()}. It avoids speculation, cites source files, and asks
+              for clarification when the data is incomplete.
+            </Typography>
+            </Box>
+          ) : null}
         </CardContent>
       </Card>
-
-      {isAdmin ? (
-        <StartupQuestionsDialog
-          open={startupDialogOpen}
-          questions={startupQuestions}
-          onClose={() => setStartupDialogOpen(false)}
-          onSave={handleSaveStartupQuestions}
-        />
-      ) : null}
     </Box>
   );
 }

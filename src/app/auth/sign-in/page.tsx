@@ -292,7 +292,7 @@ export default function Page() {
             <Box className="flex flex-col gap-10">
               <Box className="flex flex-col">
                 <Typography variant="h1" component="h1" className="mb-2">
-                  Sign in
+                  Welcome back
                 </Typography>
                 <Typography variant="body1" className="text-text-primary">
                   Sign in to AquaVista to review municipal rate-study projects and ask AVA about your data.

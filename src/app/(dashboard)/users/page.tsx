@@ -4,17 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  ArrowDownward,
-  ArrowUpward,
-  Clear,
-  FilterList,
-  MoreVert,
-  Search,
-  ViewColumn,
-  Visibility,
-  VisibilityOff,
-} from "@mui/icons-material";
+import { MoreVert, Visibility } from "@mui/icons-material";
 import {
   Alert,
   Avatar,
@@ -34,15 +24,29 @@ import {
   MenuItem,
   Pagination,
   Select,
+  SelectProps,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { DataGrid, type GridColDef, type GridSortModel } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, type GridRowSpacingParams, type GridSortModel } from "@mui/x-data-grid";
 
+import { DataGridPaginationFullPage } from "@/components/data-grid/data-grid-pagination";
 import { DEFAULTS } from "@/config";
+import NiArrowDown from "@/icons/nexture/ni-arrow-down";
+import NiArrowUp from "@/icons/nexture/ni-arrow-up";
+import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
+import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
+import NiChevronLeftRightSmall from "@/icons/nexture/ni-chevron-left-right-small";
+import NiCols from "@/icons/nexture/ni-cols";
+import NiCross from "@/icons/nexture/ni-cross";
+import NiEllipsisVertical from "@/icons/nexture/ni-ellipsis-vertical";
+import NiEyeInactive from "@/icons/nexture/ni-eye-inactive";
+import NiFilter from "@/icons/nexture/ni-filter";
+import NiFilterPlus from "@/icons/nexture/ni-filter-plus";
+import NiSearch from "@/icons/nexture/ni-search";
 import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 
 type Project = { id: string; name: string; municipality: string };
@@ -157,6 +161,13 @@ export default function UsersPage() {
     setPage(0);
     setSortModel([]);
   };
+
+  const getRowSpacing = useCallback((params: GridRowSpacingParams) => {
+    return {
+      top: params.isFirstVisible ? 0 : 3,
+      bottom: 3,
+    };
+  }, []);
 
   const columns: GridColDef<User>[] = [
     {
@@ -395,64 +406,64 @@ export default function UsersPage() {
               <CircularProgress size={28} />
             </Box>
           ) : viewMode === "list" ? (
-            <Box className="flex flex-col gap-4">
-              <Box className="w-full overflow-hidden">
-                <DataGrid
-                  rows={paginatedUsers}
-                  columns={columns}
-                  getRowId={(row) => row.id}
-                  autoHeight
-                  disableRowSelectionOnClick
-                  rowHeight={65}
-                  hideFooter
-                  sortModel={sortModel}
-                  onSortModelChange={(model) => setSortModel(model)}
-                  sx={{
-                    border: 0,
-                    "& .MuiDataGrid-columnHeaders": {
-                      backgroundColor: "rgba(0, 0, 0, 0.03)",
-                      borderBottom: "1px solid hsl(var(--grey-100))",
-                    },
-                    // Full width variant divider between rows (matches the Divider component's full width variant)
-                    "& .MuiDataGrid-row": {
-                      borderBottom: "1px solid hsl(var(--grey-100))",
-                      borderRadius: "0 !important",
-                    },
-                    "& .MuiDataGrid-cell": {
-                      borderBottom: "none",
-                      paddingY: 2,
-                      display: "flex",
-                      alignItems: "center",
-                    },
-                  }}
-                  slots={{
-                    columnSortedAscendingIcon: () => <ArrowUpward fontSize="small" />,
-                    columnSortedDescendingIcon: () => <ArrowDownward fontSize="small" />,
-                    columnMenuIcon: () => <MoreVert fontSize="small" />,
-                    columnMenuSortAscendingIcon: () => <ArrowUpward fontSize="small" />,
-                    columnMenuSortDescendingIcon: () => <ArrowDownward fontSize="small" />,
-                    columnMenuFilterIcon: () => <FilterList fontSize="small" />,
-                    columnMenuHideIcon: () => <VisibilityOff fontSize="small" />,
-                    columnMenuClearIcon: () => <Clear fontSize="small" />,
-                    columnMenuManageColumnsIcon: () => <ViewColumn fontSize="small" />,
-                    filterPanelDeleteIcon: () => <Clear fontSize="small" />,
-                    filterPanelRemoveAllIcon: () => <Clear fontSize="small" />,
-                    quickFilterIcon: () => <Search fontSize="small" />,
-                    quickFilterClearIcon: () => <Clear fontSize="small" />,
-                  }}
-                />
-              </Box>
-              {sortedUsers.length > ROWS_PER_PAGE && (
-                <Box className="flex justify-center">
-                  <Pagination
-                    count={pageCount}
-                    page={page + 1}
-                    onChange={(_event, nextPage) => setPage(nextPage - 1)}
-                    siblingCount={1}
-                    boundaryCount={1}
-                  />
-                </Box>
-              )}
+            <Box className="w-full overflow-hidden">
+              <DataGrid
+                rows={sortedUsers}
+                columns={columns}
+                getRowId={(row) => row.id}
+                autoHeight
+                disableRowSelectionOnClick
+                getRowSpacing={getRowSpacing}
+                rowHeight={48}
+                columnHeaderHeight={40}
+                className="full-page dense border-none"
+                pagination
+                pageSizeOptions={[10, 20, 50, 100]}
+                initialState={{
+                  pagination: { paginationModel: { pageSize: ROWS_PER_PAGE } },
+                }}
+                sortModel={sortModel}
+                onSortModelChange={(model) => setSortModel(model)}
+                sx={{
+                  "& .MuiTablePagination-displayedRows": { display: "none" },
+                }}
+                slotProps={{
+                  panel: { className: "mt-1!" },
+                  main: { className: "overflow-visible" },
+                }}
+                slots={{
+                  basePagination: DataGridPaginationFullPage,
+                  columnSortedDescendingIcon: () => <NiArrowDown size="small" />,
+                  columnSortedAscendingIcon: () => <NiArrowUp size="small" />,
+                  columnFilteredIcon: () => <NiFilterPlus size="small" />,
+                  columnReorderIcon: () => <NiChevronLeftRightSmall size="small" />,
+                  columnMenuIcon: () => <NiEllipsisVertical size="small" />,
+                  columnMenuSortAscendingIcon: NiArrowUp,
+                  columnMenuSortDescendingIcon: NiArrowDown,
+                  columnMenuFilterIcon: NiFilter,
+                  columnMenuHideIcon: NiEyeInactive,
+                  columnMenuClearIcon: NiCross,
+                  columnMenuManageColumnsIcon: NiCols,
+                  filterPanelDeleteIcon: NiCross,
+                  filterPanelRemoveAllIcon: NiBinEmpty,
+                  quickFilterIcon: () => <NiSearch size="medium" />,
+                  quickFilterClearIcon: () => <NiCross size="medium" />,
+                  baseButton: (props) => <Button {...props} variant="pastel" color="grey" />,
+                  baseSelect: (props: any) => {
+                    const propsCasted = props as SelectProps;
+                    return (
+                      <FormControl size="small" variant="outlined">
+                        <InputLabel>{propsCasted.label}</InputLabel>
+                        <Select
+                          {...propsCasted}
+                          IconComponent={NiChevronDownSmall}
+                          MenuProps={{ className: "outlined" }}
+                        />
+                      </FormControl>
+                    );
+                  },
+                }}
+              />
             </Box>
           ) : null}
         </CardContent>

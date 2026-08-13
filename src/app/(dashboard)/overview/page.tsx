@@ -1,13 +1,24 @@
 "use client";
 
+import DashboardContent from "./dashboard-content";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo } from "react";
 
 import { ChatOutlined, FolderOpenOutlined, GroupOutlined, PushPinOutlined, Update } from "@mui/icons-material";
-import { Box, Breadcrumbs, Card, CardContent, Chip, Grid, Tooltip, Typography } from "@mui/material";
+import { Box, Breadcrumbs, Card, CardContent, Chip, Grid, Tab, Tabs, Tooltip, Typography } from "@mui/material";
 
 import RecentActivity from "@/components/stats/recent-activity";
 import StatsGrid, { StatConfig } from "@/components/stats/stats-grid";
 import { useGlobalStats } from "@/hooks/use-stats";
+import { cn } from "@/lib/utils";
+
+type OverviewTab = "overview" | "dashboard";
+
+const TABS: { id: OverviewTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "dashboard", label: "Dashboard" },
+];
 
 function formatDate(value?: string | null) {
   if (!value) return "Recently updated";
@@ -17,6 +28,61 @@ function formatDate(value?: string | null) {
 }
 
 export default function OverviewPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const activeTab: OverviewTab = useMemo(() => {
+    const param = searchParams.get("tab");
+    return param === "dashboard" ? "dashboard" : "overview";
+  }, [searchParams]);
+
+  const handleTabChange = useCallback(
+    (_: React.SyntheticEvent, value: OverviewTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === "overview") {
+        params.delete("tab");
+      } else {
+        params.set("tab", value);
+      }
+      const queryString = params.toString();
+      router.replace(queryString ? `/overview?${queryString}` : "/overview", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  return (
+    <Box className="flex w-full flex-col gap-5">
+      <Tabs
+        value={activeTab}
+        onChange={handleTabChange}
+        textColor="primary"
+        indicatorColor="primary"
+        variant="scrollable"
+        scrollButtons={false}
+        className="min-h-9"
+        slotProps={{ indicator: { className: "hidden" } }}
+      >
+        {TABS.map((tab) => (
+          <Tab
+            key={tab.id}
+            value={tab.id}
+            label={tab.label}
+            className={cn(
+              "min-h-9 min-w-0 rounded-full border px-4 py-1.5 text-sm font-semibold normal-case transition-colors",
+              activeTab === tab.id
+                ? "border-primary text-primary bg-primary/10"
+                : "border-divider text-text-secondary hover:text-text-primary",
+            )}
+          />
+        ))}
+      </Tabs>
+
+      {activeTab === "dashboard" ? <DashboardContent /> : <OverviewContent />}
+    </Box>
+  );
+}
+
+function OverviewContent() {
   const { stats, loading, error } = useGlobalStats();
 
   const statCards: StatConfig[] = stats
@@ -138,7 +204,7 @@ export default function OverviewPage() {
                             const descriptionNode = (
                               <Typography
                                 variant="body2"
-                                className="text-text-secondary min-h-10 max-h-10 overflow-hidden leading-5"
+                                className="text-text-secondary max-h-10 min-h-10 overflow-hidden leading-5"
                                 sx={{
                                   display: "-webkit-box",
                                   WebkitLineClamp: 2,
