@@ -26,7 +26,7 @@ import { THEME_OPTIONS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { useGitHubAuth } from "@/hooks/use-github-auth";
-import { setAuthCookies } from "@/lib/auth";
+import { setAuthUser } from "@/lib/auth";
 import { useThemeContext } from "@/theme/theme-provider";
 import { useRouter } from "next/navigation";
 
@@ -82,11 +82,12 @@ export default function Page() {
         const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ credential: tokenResponse.access_token, flow: "access_token", userInfo }),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.message || "Google sign-in failed.");
-        setAuthCookies(data.token, data.user || {});
+        setAuthUser(data.user || {});
         setTheme(THEME_OPTIONS.BLUE);
         router.push(DEFAULTS.appRoot);
       } catch (error) {
@@ -109,13 +110,14 @@ export default function Page() {
       const response = await fetch(`${API_BASE_URL}/api/auth/github`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ code }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.token || !data.user) {
+      if (!response.ok || !data.user) {
         throw new Error(data?.message || "GitHub sign-in failed.");
       }
-      setAuthCookies(data.token, data.user);
+      setAuthUser(data.user);
       setTheme(THEME_OPTIONS.BLUE);
       router.push(DEFAULTS.appRoot);
     } catch (error) {

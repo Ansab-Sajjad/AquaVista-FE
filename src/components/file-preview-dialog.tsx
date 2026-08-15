@@ -19,9 +19,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
-import { getStoredAuthToken } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
 
 type FilePreviewDialogProps = {
   open: boolean;
@@ -118,14 +116,7 @@ export default function FilePreviewDialog({
     setState({ ...INITIAL_STATE });
 
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data/${fileId}/preview`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to load file preview.");
-      }
+      const res = await apiClient.raw<Response>(`/api/projects/${projectId}/data/${fileId}/preview`);
 
       const blob = await res.blob();
 

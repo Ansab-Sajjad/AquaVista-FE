@@ -47,7 +47,8 @@ import NiEyeInactive from "@/icons/nexture/ni-eye-inactive";
 import NiFilter from "@/icons/nexture/ni-filter";
 import NiFilterPlus from "@/icons/nexture/ni-filter-plus";
 import NiSearch from "@/icons/nexture/ni-search";
-import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 
 type Project = { id: string; name: string; municipality: string };
 type User = {
@@ -67,7 +68,6 @@ type ViewMode = "list" | "grid";
 type RoleFilter = "all" | "admin" | "project-user";
 type StatusFilter = "all" | "active" | "inactive" | "pending";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const ROWS_PER_PAGE = 10;
 
 function formatDate(value?: string) {
@@ -303,12 +303,7 @@ export default function UsersPage() {
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects/admin/users`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.message || "Unable to load users.");
+      const data = await apiClient.get<any[]>(`/api/projects/admin/users`);
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load users.");

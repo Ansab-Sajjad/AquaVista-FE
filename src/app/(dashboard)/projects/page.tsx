@@ -20,7 +20,8 @@ import {
 import CreateProjectDialog, { CreatedProject } from "@/components/create-project-dialog";
 import StatsGrid, { StatConfig } from "@/components/stats/stats-grid";
 import { useGlobalStats } from "@/hooks/use-stats";
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser } from "@/lib/auth";
 
 type Project = {
   id: string;
@@ -31,8 +32,6 @@ type Project = {
   fileCount: number;
   lastUpdated?: string | null;
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function ProjectsPage() {
   const [open, setOpen] = useState(false);
@@ -80,18 +79,7 @@ export default function ProjectsPage() {
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(data?.message || "Unable to load projects.");
-      }
+      const data = await apiClient.get<any[]>("/api/projects");
 
       setProjects(
         Array.isArray(data)

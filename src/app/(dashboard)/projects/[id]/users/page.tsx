@@ -35,7 +35,8 @@ import {
   Typography,
 } from "@mui/material";
 
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser } from "@/lib/auth";
 import { CheckboxMediumChecked, CheckboxMediumEmptyOutlined } from "@/icons/form/mui-checkbox";
 import { Chat, Delete, MoreVert, Visibility } from "@mui/icons-material";
 
@@ -48,8 +49,6 @@ type User = {
   lastActive?: string | null;
   addedAt?: string;
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function UsersPage() {
   const params = useParams();
@@ -87,18 +86,7 @@ export default function UsersPage() {
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/users`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(data?.message || "Unable to load project users.");
-      }
+      const data = await apiClient.get<any[]>(`/api/projects/${projectId}/users`);
 
       setUsers(
         Array.isArray(data)
@@ -131,12 +119,7 @@ export default function UsersPage() {
       setLoadingAllUsers(true);
       setInviteError(null);
       try {
-        const token = getStoredAuthToken();
-        const response = await fetch(`${API_BASE_URL}/api/projects/admin/users`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        const data = await response.json().catch(() => []);
-        if (!response.ok) throw new Error(data?.message || "Unable to load users.");
+        const data = await apiClient.get<any[]>(`/api/projects/admin/users`);
         if (!cancelled) {
           setAllUsers(
             Array.isArray(data)
@@ -188,7 +171,6 @@ export default function UsersPage() {
 
     setSubmitting(true);
     setInviteError(null);
-    const token = getStoredAuthToken();
 
     const failed: string[] = [];
     const alreadyMember: string[] = [];
@@ -196,27 +178,14 @@ export default function UsersPage() {
 
     for (const email of emails) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/users`, {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email }),
-        });
-
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          if (response.status === 409) {
-            alreadyMember.push(email);
-          } else {
-            failed.push(`${email} — ${data?.message || "Unable to invite"}`);
-          }
+        await apiClient.post(`/api/projects/${projectId}/users`, { email });
+        invitedCount++;
+      } catch (err: any) {
+        if (err?.status === 409) {
+          alreadyMember.push(email);
         } else {
-          invitedCount++;
+          failed.push(`${email} — ${err?.message || "Unable to invite"}`);
         }
-      } catch (err) {
-        failed.push(`${email} — ${err instanceof Error ? err.message : "Unable to invite"}`);
       }
     }
 
@@ -247,20 +216,7 @@ export default function UsersPage() {
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/users/${id}`, {
-        method: "DELETE",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || "Unable to remove user.");
-      }
-
+      await apiClient.delete(`/api/projects/${projectId}/users/${id}`);
       await loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to remove user.");

@@ -3,9 +3,7 @@
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useState } from "react";
 
 import type { AvaUsage } from "./types";
-import { getStoredAuthToken } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
 
 type AvaUsageContextValue = {
   usage: AvaUsage | null;
@@ -20,13 +18,9 @@ export function AvaUsageProvider({ projectId, children }: PropsWithChildren<{ pr
 
   const refreshUsage = useCallback(async () => {
     if (!projectId) return;
-    const token = getStoredAuthToken();
-    if (!token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/usage`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setUsage(await res.json());
+      const data = await apiClient.get<AvaUsage>(`/api/projects/${encodeURIComponent(projectId)}/ava/usage`);
+      setUsage(data);
     } catch {
       // Usage is non-critical; ignore
     }

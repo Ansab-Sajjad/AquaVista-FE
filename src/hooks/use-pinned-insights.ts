@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { AvaChartData, AvaTableData } from "@/components/ask-ava/types";
-import { getStoredAuthToken } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
 
 export type PinnedInsightType = "narrative" | "table" | "chart";
 
@@ -46,18 +44,8 @@ interface RawPinnedItem {
   canUnpin?: boolean;
 }
 
-async function fetchProjects(token: string | null): Promise<ProjectRef[]> {
-  const response = await fetch(`${API_BASE_URL}/api/projects`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      "Content-Type": "application/json",
-    },
-  });
-
-  const data = await response.json().catch(() => []);
-  if (!response.ok) {
-    throw new Error(data?.message || "Unable to load projects.");
-  }
+async function fetchProjects(): Promise<ProjectRef[]> {
+  const data = await apiClient.get<any[]>("/api/projects");
 
   return (Array.isArray(data) ? data : []).map((item: any) => ({
     id: item.id || item._id,
@@ -66,17 +54,12 @@ async function fetchProjects(token: string | null): Promise<ProjectRef[]> {
   }));
 }
 
-async function fetchPinnedForProject(project: ProjectRef, token: string | null): Promise<PinnedInsight[]> {
+async function fetchPinnedForProject(project: ProjectRef): Promise<PinnedInsight[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(project.id)}/dashboard`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
+    const data = await apiClient.get<RawPinnedItem[]>(
+      `/api/projects/${encodeURIComponent(project.id)}/dashboard`,
+    );
 
-    if (!response.ok) return [];
-
-    const data = (await response.json()) as RawPinnedItem[];
     if (!Array.isArray(data)) return [];
 
     return data.map((item) => ({
@@ -100,15 +83,14 @@ export function usePinnedInsights() {
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const projects = await fetchProjects(token);
+      const projects = await fetchProjects();
 
       if (projects.length === 0) {
         setInsights([]);
         return;
       }
 
-      const results = await Promise.all(projects.map((project) => fetchPinnedForProject(project, token)));
+      const results = await Promise.all(projects.map((project) => fetchPinnedForProject(project)));
       const all = results.flat().sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();

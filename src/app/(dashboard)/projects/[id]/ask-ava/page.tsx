@@ -27,7 +27,8 @@ import { useAvaUsage } from "@/components/ask-ava/ava-usage-context";
 import type { AvaMessage, AvaUsage, StartupQuestion } from "@/components/ask-ava/types";
 import { useTypewriter } from "@/hooks/use-typewriter";
 import { AquaVista } from "@/lib/AquaVista";
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type ChatRecord = {
@@ -35,8 +36,6 @@ type ChatRecord = {
   title: string;
   messages: (Omit<AvaMessage, "id"> & { createdAt?: string; _id?: string })[];
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const WELCOME_MESSAGE: AvaMessage = {
   id: "welcome",
@@ -67,7 +66,6 @@ export default function AskAvaPage() {
   const typewriter = useTypewriter();
   const { reset: resetTypewriter, enqueue: enqueueTypewriter } = typewriter;
 
-  const token = getStoredAuthToken();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isAdmin = isAdminUser();
   const isAdminViewingUser = Boolean(requestedUserId) && isAdmin;
@@ -82,71 +80,48 @@ export default function AskAvaPage() {
   }, [messages, typewriter.progress]);
 
   const fetchStartupQuestions = useCallback(async () => {
-    if (!projectId || !token) return;
+    if (!projectId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setStartupQuestions(await res.json());
+      const data = await apiClient.get<StartupQuestion[]>(`/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`);
+      setStartupQuestions(data);
     } catch {
       // Non-critical; ignore
     }
-  }, [projectId, token]);
+  }, [projectId]);
 
   const fetchProjectName = useCallback(async () => {
-    if (!projectId || !token) return;
+    if (!projectId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProjectName(data.name || null);
-      }
+      const data = await apiClient.get<any>(`/api/projects/${encodeURIComponent(projectId)}`);
+      setProjectName(data.name || null);
     } catch {
       // Non-critical; ignore
     }
-  }, [projectId, token]);
+  }, [projectId]);
 
   const fetchViewedUser = useCallback(async () => {
-    if (!requestedUserId || !token) return;
+    if (!requestedUserId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/projects/admin/users/${encodeURIComponent(requestedUserId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setViewedUserName(data.name || data.email || "this user");
-      }
+      const data = await apiClient.get<any>(`/api/projects/admin/users/${encodeURIComponent(requestedUserId)}`);
+      setViewedUserName(data.name || data.email || "this user");
     } catch {
       // Non-critical; ignore
     }
-  }, [requestedUserId, token]);
+  }, [requestedUserId]);
 
   const loadChat = useCallback(
     async (selectedChatId: string, title: string) => {
-      if (!projectId || !token) return;
+      if (!projectId) return;
 
       setIsLoading(true);
       setError(null);
       resetTypewriter();
 
       try {
-        const chatRes = await fetch(
-          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+        const chat = await apiClient.get<ChatRecord>(
+          `/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
         );
 
-        if (!chatRes.ok) {
-          const payload = await chatRes.json().catch(() => null);
-          throw new Error(payload?.message || `Failed to load Ask AVA conversation (${chatRes.status})`);
-        }
-
-        const chat = (await chatRes.json()) as ChatRecord;
         setChatId(selectedChatId);
         setChatTitle(title);
 
@@ -168,19 +143,10 @@ export default function AskAvaPage() {
 
         // Fetch pinned message ids for this chat
         try {
-          const pinnedRes = await fetch(
-            `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}/pinned-messages`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
+          const pinnedData = await apiClient.get<{ pinnedMessageIds: string[] }>(
+            `/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(selectedChatId)}/pinned-messages`,
           );
-
-          if (pinnedRes.ok) {
-            const pinnedData = await pinnedRes.json();
-            setPinnedMessageIds(new Set((pinnedData.pinnedMessageIds || []) as string[]));
-          }
+          setPinnedMessageIds(new Set(pinnedData.pinnedMessageIds || []));
         } catch (err) {
           console.error("Failed to load pinned chat status:", err);
           // Continue without pinned state
@@ -192,12 +158,12 @@ export default function AskAvaPage() {
         setIsLoading(false);
       }
     },
-    [projectId, requestedUserId, token, resetTypewriter],
+    [projectId, requestedUserId, resetTypewriter],
   );
 
   useEffect(() => {
     async function fetchChat() {
-      if (!projectId || !token) {
+      if (!projectId) {
         setIsLoading(false);
         return;
       }
@@ -206,21 +172,9 @@ export default function AskAvaPage() {
       setError(null);
 
       try {
-        const chatsRes = await fetch(
-          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+        const chats = await apiClient.get<any[]>(
+          `/api/projects/${encodeURIComponent(projectId)}/ava/chats${requestedUserId ? `?userId=${encodeURIComponent(requestedUserId)}` : ""}`,
         );
-
-        if (!chatsRes.ok) {
-          const payload = await chatsRes.json().catch(() => null);
-          throw new Error(payload?.message || `Failed to load chat list (${chatsRes.status})`);
-        }
-
-        const chats = (await chatsRes.json()) as any[];
 
         let selectedChat = chats[0];
 
@@ -233,21 +187,10 @@ export default function AskAvaPage() {
             return;
           }
 
-          const createRes = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ title: "Ask AVA conversation" }),
-          });
-
-          if (!createRes.ok) {
-            const payload = await createRes.json().catch(() => null);
-            throw new Error(payload?.message || `Failed to create Ask AVA chat (${createRes.status})`);
-          }
-
-          selectedChat = await createRes.json();
+          selectedChat = await apiClient.post<any>(
+            `/api/projects/${encodeURIComponent(projectId)}/ava/chats`,
+            { title: "Ask AVA conversation" },
+          );
         }
 
         if (!selectedChat) {
@@ -264,7 +207,7 @@ export default function AskAvaPage() {
     }
 
     fetchChat();
-  }, [projectId, isAdminViewingUser, requestedUserId, token, loadChat]);
+  }, [projectId, isAdminViewingUser, requestedUserId, loadChat]);
 
   // Load startup questions + viewed user name on mount (usage is fetched by the shared AvaUsageProvider)
   useEffect(() => {
@@ -285,7 +228,7 @@ export default function AskAvaPage() {
     if (usage?.limitReached) return;
 
     const contentToSend = (overrideContent ?? input).trim();
-    if (!contentToSend || isThinking || !projectId || !token || !chatId) return;
+    if (!contentToSend || isThinking || !projectId || !chatId) return;
 
     const userMessage: AvaMessage = { id: String(Date.now()), role: "user", content: contentToSend };
     setMessages((prev) => [...prev, userMessage]);
@@ -294,28 +237,10 @@ export default function AskAvaPage() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ content: contentToSend, provider: selectedProvider }),
-        },
+      const payload = await apiClient.post<{ messages: (AvaMessage & { _id?: string })[]; usage?: AvaUsage }>(
+        `/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages`,
+        { content: contentToSend, provider: selectedProvider },
       );
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        const message = payload?.message || "AVA is temporarily unavailable. Please try again.";
-        if (response.status === 429 && payload?.usage) {
-          setUsage(payload.usage);
-        }
-        throw new Error(message);
-      }
-
-      const payload = (await response.json()) as { messages: (AvaMessage & { _id?: string })[]; usage?: AvaUsage };
       const assistantMessages = payload.messages.filter((item) => item.role === "assistant");
       const mappedAssistant = assistantMessages.map((item, index) => ({
         id: item._id || `${Date.now()}-${index}`,
@@ -327,37 +252,29 @@ export default function AskAvaPage() {
         chartData: item.chartData,
       }));
       setMessages((prev) => [...prev, ...mappedAssistant]);
-      // Stream the narrative text in with a typewriter effect. Messages
-      // without content (e.g. table/chart-only) are skipped by the hook.
       typewriter.enqueue(mappedAssistant.map((m) => ({ id: m.id, content: m.content })));
       if (payload.usage) setUsage(payload.usage);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError((err as Error).message || "AVA is temporarily unavailable. Please try again.");
+      if (err?.status === 429 && err?.data?.usage) {
+        setUsage(err.data.usage);
+      }
+      setError(err?.message || "AVA is temporarily unavailable. Please try again.");
     } finally {
       setIsThinking(false);
     }
   };
 
   const handlePin = async (message: AvaMessage) => {
-    if (!projectId || !token || !chatId) return;
+    if (!projectId || !chatId) return;
 
     const isCurrentlyPinned = pinnedMessageIds.has(message.id);
 
     if (isCurrentlyPinned) {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/unpin`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+        await apiClient.delete(
+          `/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/unpin`,
         );
-        if (!response.ok) {
-          throw new Error("Failed to unpin message");
-        }
         setPinnedMessageIds((prev) => {
           const next = new Set(prev);
           next.delete(message.id);
@@ -368,26 +285,16 @@ export default function AskAvaPage() {
       }
     } else {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/pin`,
+        await apiClient.post(
+          `/api/projects/${encodeURIComponent(projectId)}/ava/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(message.id)}/pin`,
           {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              content: message.content,
-              type: message.type || "narrative",
-              title: message.title || "AquaVista Assistant",
-              tableData: message.tableData,
-              chartData: message.chartData,
-            }),
+            content: message.content,
+            type: message.type || "narrative",
+            title: message.title || "AquaVista Assistant",
+            tableData: message.tableData,
+            chartData: message.chartData,
           },
         );
-        if (!response.ok) {
-          throw new Error("Failed to pin message");
-        }
         setPinnedMessageIds((prev) => new Set(prev).add(message.id));
       } catch (err) {
         console.error(err);
@@ -402,7 +309,7 @@ export default function AskAvaPage() {
     }
   };
 
-  const inputDisabled = isLoading || !token || !chatId || isAdminViewingUser || Boolean(usage?.limitReached);
+  const inputDisabled = isLoading || !chatId || isAdminViewingUser || Boolean(usage?.limitReached);
   const showStartupIntro = !isAdminViewingUser && messages.length <= 1 && startupQuestions.length > 0;
 
   return (
@@ -671,7 +578,6 @@ export default function AskAvaPage() {
                   !input.trim() ||
                   isThinking ||
                   isLoading ||
-                  !token ||
                   !chatId ||
                   isAdminViewingUser ||
                   Boolean(usage?.limitReached)

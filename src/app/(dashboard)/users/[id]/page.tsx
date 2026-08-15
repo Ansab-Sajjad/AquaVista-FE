@@ -23,7 +23,8 @@ import {
 } from "@mui/material";
 import { ArrowBack, Business, Email, Forum, Person, Work } from "@mui/icons-material";
 
-import { getStoredAuthToken, isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser, normalizeAvatarUrl } from "@/lib/auth";
 import { DEFAULTS } from "@/config";
 
 type Project = { id: string; name: string; municipality: string };
@@ -40,8 +41,6 @@ type UserDetail = {
   image?: string | null;
   projects: Project[];
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 function formatDate(value?: string) {
   if (!value) return "Never logged in";
@@ -89,16 +88,7 @@ export default function UserDetailPage() {
       setError(null);
 
       try {
-        const token = getStoredAuthToken();
-        const response = await fetch(`${API_BASE_URL}/api/projects/admin/users/${userId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          throw new Error(data?.message || "Unable to load user details.");
-        }
-
+        const data = await apiClient.get<any>(`/api/projects/admin/users/${userId}`);
         setUser(data || null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load user details.");

@@ -16,7 +16,8 @@ import NiHome from "@/icons/nexture/ni-home";
 import NiRobot from "@/icons/nexture/ni-robot";
 import NiUsers from "@/icons/nexture/ni-users";
 import { cn } from "@/lib/utils";
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser } from "@/lib/auth";
 
 const PROJECT_TABS = [
   { id: "overview", label: "Overview", icon: NiHome, href: (id: string) => `/projects/${id}/overview` },
@@ -34,8 +35,6 @@ type Project = {
   teamCount: number;
   lastUpdated?: string | null;
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function ProjectLayout({ children }: PropsWithChildren) {
   const params = useParams();
@@ -67,16 +66,9 @@ function ProjectLayoutContent({ projectId, children }: PropsWithChildren<{ proje
       }
 
       try {
-        const token = getStoredAuthToken();
-        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            "Content-Type": "application/json",
-          },
-        });
+        const data = await apiClient.get<any>(`/api/projects/${projectId}`);
 
-        const data = await response.json().catch(() => null);
-        if (response.ok && data) {
+        if (data) {
           setProject({
             id: data.id || data._id,
             name: data.name,
@@ -98,13 +90,9 @@ function ProjectLayoutContent({ projectId, children }: PropsWithChildren<{ proje
 
   const fetchStartupQuestions = useCallback(async () => {
     if (!projectId) return;
-    const token = getStoredAuthToken();
-    if (!token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setStartupQuestions(await res.json());
+      const data = await apiClient.get<StartupQuestion[]>(`/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`);
+      setStartupQuestions(data);
     } catch {
       // Non-critical; ignore
     }
@@ -113,18 +101,10 @@ function ProjectLayoutContent({ projectId, children }: PropsWithChildren<{ proje
   const handleSaveStartupQuestions = useCallback(
     async (questions: StartupQuestion[]) => {
       if (!projectId) return;
-      const token = getStoredAuthToken();
-      if (!token) return;
-      const res = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ questions }),
-      });
-      if (!res.ok) throw new Error("Failed to save startup questions");
-      const saved = await res.json();
+      const saved = await apiClient.put<StartupQuestion[]>(
+        `/api/projects/${encodeURIComponent(projectId)}/ava/startup-questions`,
+        { questions },
+      );
       setStartupQuestions(saved);
     },
     [projectId],

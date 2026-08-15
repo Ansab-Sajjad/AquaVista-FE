@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getStoredAuthToken } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
 
 export type NotificationCategory =
   | "file_uploaded"
@@ -45,11 +43,6 @@ interface UseNotificationsReturn {
   markAllAsRead: () => void;
 }
 
-function authHeader(): HeadersInit {
-  const token = getStoredAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export function useNotifications(): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,13 +52,7 @@ export function useNotifications(): UseNotificationsReturn {
 
     async function fetchNotifications() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/notifications`, {
-          headers: authHeader(),
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
+        const data = await apiClient.get<NotificationItem[]>("/api/notifications");
 
         if (!cancelled) {
           setNotifications(
@@ -106,10 +93,7 @@ export function useNotifications(): UseNotificationsReturn {
     );
 
     // Persist to server (fire-and-forget)
-    fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
-      method: "PATCH",
-      headers: authHeader(),
-    }).catch(() => {
+    apiClient.patch(`/api/notifications/${id}/read`).catch(() => {
       // On failure, revert
       setNotifications((prev) =>
         prev.map((n) =>
@@ -138,10 +122,7 @@ export function useNotifications(): UseNotificationsReturn {
     );
 
     // Persist to server
-    fetch(`${API_BASE_URL}/api/notifications/read-all`, {
-      method: "PATCH",
-      headers: authHeader(),
-    }).catch(() => {
+    apiClient.patch("/api/notifications/read-all").catch(() => {
       // Silent failure — unread count badge may be stale until next page load
     });
   }, []);

@@ -27,7 +27,8 @@ import {
 } from "@mui/material";
 
 import FilePreviewDialog from "@/components/file-preview-dialog";
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser } from "@/lib/auth";
 
 const DATA_TYPES = [
   "Financial Snapshot",
@@ -60,8 +61,6 @@ type TemplateFile = {
   mimeType: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
 export default function DataPage() {
   const params = useParams();
   const projectId = (params?.id as string) || "";
@@ -90,16 +89,8 @@ export default function DataPage() {
     if (!projectId) return;
     setLoadingFiles(true);
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUploads(data);
-      }
+      const data = await apiClient.get<UploadFile[]>(`/api/projects/${projectId}/data`);
+      setUploads(data);
     } catch (err) {
       console.error("Failed to load project files:", err);
     } finally {
@@ -111,16 +102,8 @@ export default function DataPage() {
     if (!projectId) return;
     setLoadingTemplates(true);
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/templates`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data);
-      }
+      const data = await apiClient.get<TemplateFile[]>(`/api/projects/${projectId}/templates`);
+      setTemplates(data);
     } catch (err) {
       console.error("Failed to load templates:", err);
     } finally {
@@ -143,7 +126,6 @@ export default function DataPage() {
       setSuccessMsg(null);
 
       try {
-        const token = getStoredAuthToken();
         const formData = new FormData();
         formData.append("file", file);
         formData.append("fileType", fileType);
@@ -151,18 +133,7 @@ export default function DataPage() {
           formData.append("year", year);
         }
 
-        const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data`, {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.message || "Failed to upload file");
-        }
+        await apiClient.upload(`/api/projects/${projectId}/data`, formData);
 
         setSuccessMsg(`File "${file.name}" uploaded successfully!`);
         fetchUploadedFiles();
@@ -188,11 +159,7 @@ export default function DataPage() {
 
   const handleDownloadTemplate = async (templateId: string, fileName: string) => {
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/templates/${templateId}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to download template");
+      const res = await apiClient.raw<Response>(`/api/projects/${projectId}/templates/${templateId}/download`);
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -209,11 +176,7 @@ export default function DataPage() {
 
   const handleDownloadUploadedFile = async (fileId: string, fileName: string) => {
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data/${fileId}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to download file");
+      const res = await apiClient.raw<Response>(`/api/projects/${projectId}/data/${fileId}/download`);
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -230,18 +193,9 @@ export default function DataPage() {
 
   const handleDeleteUploadedFile = async (fileId: string) => {
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/data/${fileId}`, {
-        method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        setSuccessMsg("File deleted successfully.");
-        fetchUploadedFiles();
-      } else {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to delete file");
-      }
+      await apiClient.delete(`/api/projects/${projectId}/data/${fileId}`);
+      setSuccessMsg("File deleted successfully.");
+      fetchUploadedFiles();
     } catch (err: any) {
       setError(err.message || "Delete failed");
     }

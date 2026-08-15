@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { getStoredAuthToken, getStoredAuthUser, setAuthCookies } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
+import { getStoredAuthUser, setAuthUser } from "@/lib/auth";
 
 interface AuthUser {
   id?: string;
@@ -29,20 +28,15 @@ export function useAuthUser(): AuthUser {
 
     if (stored && !stored.name) {
       // Stored user is missing name — fetch fresh from API and update localStorage
-      const token = getStoredAuthToken();
-      if (token) {
-        fetch(`${API_BASE_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+      apiClient
+        .get<AuthUser>("/api/auth/me")
+        .then((data) => {
+          if (data?.name) {
+            setAuthUser(data);
+            setUser(data);
+          }
         })
-          .then((res) => (res.ok ? res.json() : null))
-          .then((data) => {
-            if (data?.name) {
-              setAuthCookies(token, data);
-              setUser(data);
-            }
-          })
-          .catch(() => {});
-      }
+        .catch(() => {});
     } else if (stored) {
       setUser(stored);
     }

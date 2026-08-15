@@ -33,7 +33,7 @@ import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
 import { useGitHubAuth } from "@/hooks/use-github-auth";
-import { setAuthCookies } from "@/lib/auth";
+import { setAuthUser } from "@/lib/auth";
 import { useThemeContext } from "@/theme/theme-provider";
 
 const validationSchema = yup.object({
@@ -89,11 +89,12 @@ export default function Page() {
       const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ credential }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.message || "Google sign-in failed.");
-      setAuthCookies(data.token, data.user || {});
+      setAuthUser(data.user || {});
       const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
       setTheme(roleTheme);
       router.push(DEFAULTS.appRoot);
@@ -115,13 +116,14 @@ export default function Page() {
       const response = await fetch(`${API_BASE_URL}/api/auth/github`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ code }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.token || !data.user) {
+      if (!response.ok || !data.user) {
         throw new Error(data?.message || "GitHub sign-in failed.");
       }
-      setAuthCookies(data.token, data.user);
+      setAuthUser(data.user);
       const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
       setTheme(roleTheme);
       router.push(DEFAULTS.appRoot);
@@ -148,11 +150,12 @@ export default function Page() {
         const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ credential: tokenResponse.access_token, flow: "access_token", userInfo }),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.message || "Google sign-in failed.");
-        setAuthCookies(data.token, data.user || {});
+        setAuthUser(data.user || {});
         const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
         setTheme(roleTheme);
         router.push(DEFAULTS.appRoot);
@@ -183,6 +186,7 @@ export default function Page() {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             email: values.email,
             password: values.password,
@@ -195,11 +199,11 @@ export default function Page() {
           throw new Error(data?.message || "Unable to sign in. Please try again.");
         }
 
-        if (!data?.token) {
-          throw new Error("Authentication token was not returned by the server.");
+        if (!data?.user) {
+          throw new Error("Authentication failed. Please try again.");
         }
 
-        setAuthCookies(data.token, data.user || {});
+        setAuthUser(data.user);
 
         const roleTheme = data.user?.role === "admin" ? THEME_OPTIONS.ORANGE : THEME_OPTIONS.BLUE;
         setTheme(roleTheme);

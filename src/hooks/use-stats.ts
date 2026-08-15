@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { getStoredAuthToken } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
 
 export interface GlobalStats {
   totals: {
@@ -69,22 +67,6 @@ export interface ProjectSummary {
   lastUpdated: string;
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const token = getStoredAuthToken();
-  const response = await fetch(url, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      "Content-Type": "application/json",
-    },
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(data?.message || "Unable to load statistics.");
-  }
-  return data as T;
-}
-
 export function useGlobalStats() {
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +76,7 @@ export function useGlobalStats() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchJson<GlobalStats>(`${API_BASE_URL}/api/stats/overview`);
+      const data = await apiClient.get<GlobalStats>("/api/stats/overview");
       setStats(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load statistics.");
@@ -123,8 +105,8 @@ export function useProjectStats(projectId: string | null | undefined) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchJson<ProjectStats>(
-        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/stats`,
+      const data = await apiClient.get<ProjectStats>(
+        `/api/projects/${encodeURIComponent(projectId)}/stats`,
       );
       setStats(data);
     } catch (err) {

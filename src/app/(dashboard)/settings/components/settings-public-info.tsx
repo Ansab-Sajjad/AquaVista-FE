@@ -22,9 +22,8 @@ import {
 import { CameraAlt } from "@mui/icons-material";
 
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
-import { getStoredAuthToken, getStoredAuthUser, normalizeAvatarUrl, setAuthCookies } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
+import { getStoredAuthUser, normalizeAvatarUrl, setAuthUser } from "@/lib/auth";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other", "Not Specified"];
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
@@ -69,12 +68,7 @@ export default function SettingsPublicInfo() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = getStoredAuthToken();
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || "Failed to load profile.");
+        const data = await apiClient.get<any>(`/api/auth/me`);
         setProfile({
           name: data.name ?? "",
           email: data.email ?? "",
@@ -117,26 +111,17 @@ export default function SettingsPublicInfo() {
     setUploadError(null);
     setSuccess(false);
     try {
-      const token = getStoredAuthToken();
-
-      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: profile.name,
-          username: profile.username,
-          company: profile.company,
-          location: profile.location,
-          birthday: profile.birthday,
-          gender: profile.gender,
-          bio: profile.bio,
-          phone: profile.phone,
-          jobTitle: profile.jobTitle,
-        }),
+      const data = await apiClient.patch<any>(`/api/auth/me`, {
+        name: profile.name,
+        username: profile.username,
+        company: profile.company,
+        location: profile.location,
+        birthday: profile.birthday,
+        gender: profile.gender,
+        bio: profile.bio,
+        phone: profile.phone,
+        jobTitle: profile.jobTitle,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to update profile.");
 
       let updatedProfile = {
         ...profile,
@@ -149,14 +134,7 @@ export default function SettingsPublicInfo() {
         const avatarForm = new FormData();
         avatarForm.append("avatar", selectedAvatar);
 
-        const avatarRes = await fetch(`${API_BASE_URL}/api/auth/me/avatar`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: avatarForm,
-        });
-
-        const avatarData = await avatarRes.json();
-        if (!avatarRes.ok) throw new Error(avatarData?.message || "Failed to upload profile image.");
+        const avatarData = await apiClient.upload<any>(`/api/auth/me/avatar`, avatarForm);
 
         const imageUrl = normalizeAvatarUrl(avatarData?.image ?? updatedProfile.profileImage);
         updatedProfile = {
@@ -171,14 +149,12 @@ export default function SettingsPublicInfo() {
       }
 
       setProfile(updatedProfile as ProfileData);
-      if (token) {
-        const currentUser = getStoredAuthUser() ?? {};
-        setAuthCookies(token, {
-          ...currentUser,
-          ...updatedProfile,
-          image: updatedProfile.image ?? updatedProfile.profileImage,
-        });
-      }
+      const currentUser = getStoredAuthUser() ?? {};
+      setAuthUser({
+        ...currentUser,
+        ...updatedProfile,
+        image: updatedProfile.image ?? updatedProfile.profileImage,
+      });
       setSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update profile.";

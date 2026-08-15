@@ -1,4 +1,3 @@
-const AUTH_TOKEN_KEY = "aquavista-auth-token";
 const AUTH_USER_KEY = "aquavista-user";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -9,14 +8,6 @@ export function normalizeAvatarUrl(url?: string | null) {
     return `${API_BASE_URL}${url}`;
   }
   return url;
-}
-
-export function getStoredAuthToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 export function getStoredAuthUser() {
@@ -47,7 +38,7 @@ export function getStoredAuthUser() {
 }
 
 export function isAuthenticated() {
-  return Boolean(getStoredAuthToken());
+  return Boolean(getStoredAuthUser());
 }
 
 export function isAdminUser() {
@@ -70,12 +61,10 @@ export function isAdminUser() {
   return false;
 }
 
-export function setAuthCookies(token: string, user: Record<string, unknown> | null = null) {
+export function setAuthUser(user: Record<string, unknown> | null) {
   if (typeof window === "undefined") {
     return;
   }
-
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
 
   if (user) {
     const imageValue = String((user as any).image || (user as any).profileImage || "");
@@ -86,6 +75,9 @@ export function setAuthCookies(token: string, user: Record<string, unknown> | nu
     };
     window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(normalizedUser));
     window.dispatchEvent(new CustomEvent("auth-user-change", { detail: normalizedUser }));
+  } else {
+    window.localStorage.removeItem(AUTH_USER_KEY);
+    window.dispatchEvent(new CustomEvent("auth-user-change", { detail: null }));
   }
 }
 
@@ -94,6 +86,6 @@ export function clearAuthState() {
     return;
   }
 
-  window.localStorage.removeItem(AUTH_TOKEN_KEY);
   window.localStorage.removeItem(AUTH_USER_KEY);
+  window.dispatchEvent(new CustomEvent("auth-user-change", { detail: null }));
 }

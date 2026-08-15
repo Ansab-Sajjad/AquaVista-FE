@@ -26,9 +26,7 @@ import NiListCircle from "@/icons/nexture/ni-list-circle";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
-import { getStoredAuthToken } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
 
 const rules = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -116,14 +114,10 @@ export default function PasswordPage() {
 
     setSaving(true);
     try {
-      const token = getStoredAuthToken();
-      const res = await fetch(`${API_BASE_URL}/api/auth/me/password`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: form.currentPassword, newPassword: form.newPassword }),
+      await apiClient.patch(`/api/auth/me/password`, {
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to update password.");
       setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setSuccess(true);
     } catch (err) {

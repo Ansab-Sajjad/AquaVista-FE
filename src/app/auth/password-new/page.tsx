@@ -26,7 +26,7 @@ import { THEME_OPTIONS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
-import { setAuthCookies } from "@/lib/auth";
+import { setAuthUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useThemeContext } from "@/theme/theme-provider";
 
@@ -103,6 +103,7 @@ export default function Page() {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             token,
             password: values.password,
@@ -115,8 +116,8 @@ export default function Page() {
           throw new Error(data?.message || "Unable to reset your password. Please try again.");
         }
 
-        if (data?.token) {
-          setAuthCookies(data.token, data.user || {});
+        if (data?.user) {
+          setAuthUser(data.user);
         }
 
         setSuccessMessage(data?.message || "Password reset successful.");

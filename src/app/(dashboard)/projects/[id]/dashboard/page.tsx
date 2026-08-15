@@ -8,10 +8,8 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Typography } fr
 import AvaChart from "@/components/ask-ava/ava-chart";
 import AvaTable from "@/components/ask-ava/ava-table";
 import type { AvaChartData, AvaTableData } from "@/components/ask-ava/types";
-import { getStoredAuthToken } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 type PinnedItem = {
   id: string;
@@ -61,11 +59,9 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const token = getStoredAuthToken();
-
   useEffect(() => {
     async function fetchPinnedItems() {
-      if (!projectId || !token) {
+      if (!projectId) {
         setIsLoading(false);
         return;
       }
@@ -74,17 +70,7 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/dashboard`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to load pinned items");
-        }
-
-        const data = (await response.json()) as PinnedItem[];
+        const data = await apiClient.get<PinnedItem[]>(`/api/projects/${encodeURIComponent(projectId)}/dashboard`);
         setPinned(data);
       } catch (err) {
         console.error(err);
@@ -95,25 +81,13 @@ export default function DashboardPage() {
     }
 
     fetchPinnedItems();
-  }, [projectId, token]);
+  }, [projectId]);
 
   const handleUnpin = async (id: string) => {
-    if (!projectId || !token) return;
+    if (!projectId) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/dashboard/${encodeURIComponent(id)}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to unpin item");
-      }
+      await apiClient.delete(`/api/projects/${encodeURIComponent(projectId)}/dashboard/${encodeURIComponent(id)}`);
 
       setPinned((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {

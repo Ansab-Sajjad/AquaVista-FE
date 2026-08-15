@@ -10,7 +10,7 @@ import { PrimaryItem } from "@/components/layout/menu/primary-item";
 import { SecondaryItem } from "@/components/layout/menu/secondary-item";
 import { DEFAULTS } from "@/config";
 import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
-import { isAdminUser } from "@/lib/auth";
+import { isAdminUser, clearAuthState } from "@/lib/auth";
 import { cn, isPathMatch } from "@/lib/utils";
 import { leftMenuBottomItems, leftMenuItems } from "@/menu-items";
 import { MenuItem, MenuShowState, MenuType } from "@/types";
@@ -128,32 +128,15 @@ export default function LeftMenu() {
   }, [onResetLeft, hideLeftSecondary, updateSelectedSecondaryItem, menuSelectedSecondaryItem]);
 
   const handleSignOut = () => {
-    const token = window.localStorage.getItem("aquavista-auth-token");
+    clearAuthState();
 
-    // Remove auth state directly from localStorage.
-    window.localStorage.removeItem("aquavista-auth-token");
-    window.localStorage.removeItem("aquavista-user");
-
-    // Trigger useAuthGuard in this tab and other tabs.
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: "aquavista-auth-token",
-        newValue: null,
-      }),
-    );
-
-    if (token) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        keepalive: true,
-      }).catch(() => {
-        // Ignore logout failures.
-      });
-    }
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+    }).catch(() => {
+      // Ignore logout failures.
+    });
   };
 
   const handleSelectPrimaryItem = (item: MenuItem) => {

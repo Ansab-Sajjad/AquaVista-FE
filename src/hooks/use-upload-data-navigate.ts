@@ -3,9 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
-import { getStoredAuthToken, isAdminUser } from "@/lib/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { apiClient } from "@/lib/api-client";
+import { isAdminUser } from "@/lib/auth";
 
 type ProjectOption = {
   id: string;
@@ -37,18 +36,7 @@ export function useUploadDataNavigate() {
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(data?.message || "Unable to load projects.");
-      }
+      const data = await apiClient.get<any[]>("/api/projects");
 
       const list: ProjectOption[] = Array.isArray(data)
         ? data.map((item: any) => ({

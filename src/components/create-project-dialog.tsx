@@ -13,7 +13,7 @@ import {
   Input,
 } from "@mui/material";
 
-import { getStoredAuthToken } from "@/lib/auth";
+import { apiClient } from "@/lib/api-client";
 
 export type CreatedProject = {
   id: string;
@@ -30,8 +30,6 @@ type CreateProjectDialogProps = {
   onClose: () => void;
   onCreated?: (project: CreatedProject) => void;
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const EMPTY_FORM = { name: "", municipality: "", description: "" };
 
@@ -58,24 +56,11 @@ export default function CreateProjectDialog({ open, onClose, onCreated }: Create
     setError(null);
 
     try {
-      const token = getStoredAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: newProject.name,
-          municipality: newProject.municipality,
-          description: newProject.description,
-        }),
+      const data = await apiClient.post<any>("/api/projects", {
+        name: newProject.name,
+        municipality: newProject.municipality,
+        description: newProject.description,
       });
-
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(data?.message || "Unable to create project.");
-      }
 
       const created: CreatedProject = {
         id: data?.id || String(Date.now()),
