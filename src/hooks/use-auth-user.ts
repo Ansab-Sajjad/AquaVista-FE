@@ -32,7 +32,7 @@ export function useAuthUser(): AuthUser {
         .get<AuthUser>("/api/auth/me")
         .then((data) => {
           if (data?.name) {
-            setAuthUser(data);
+            setAuthUser(data as Record<string, unknown>);
             setUser(data);
           }
         })

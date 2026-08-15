@@ -1,4 +1,4 @@
-import { ChartsTooltipProps, useAxesTooltip, useItemTooltip } from "@mui/x-charts-pro";
+import { ChartsTooltipProps, useAxesTooltip, useItemTooltip } from "@mui/x-charts";
 
 import { tooltipHooksToDataset } from "@/lib/chart-helper";
 

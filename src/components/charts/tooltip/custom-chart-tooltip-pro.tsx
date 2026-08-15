@@ -1,4 +1,4 @@
-import { ChartsTooltipContainer, ChartsTooltipPaper, ChartsTooltipProps } from "@mui/x-charts-pro";
+import { ChartsTooltipContainer, ChartsTooltipPaper, ChartsTooltipProps } from "@mui/x-charts";
 
 import CustomChartTooltipContent from "@/components/charts/tooltip/custom-chart-tooltip-content";
 import useChartTooltipDataPro from "@/hooks/use-chart-tooltip-data-pro";
