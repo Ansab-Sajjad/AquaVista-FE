@@ -159,7 +159,9 @@ export default function LeftMenu() {
       showLeftSecondary();
       setActiveItem(item);
     } else {
-      if (isPathMatch(pathname, item.href || "")) {
+      const cleanPath = pathname.replace(/\/$/, "");
+      const cleanHref = (item.href || "").replace(/\/$/, "");
+      if (cleanPath === cleanHref) {
         // Primary item is link without children or a content. The route is the same so don't do anything.
         hideLeftSecondary();
         resetLeftMenu();
